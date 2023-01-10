@@ -1,0 +1,2578 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://loser-wang.github.io</id>
+    <title>Gridea</title>
+    <updated>2023-01-10T08:22:44.487Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://loser-wang.github.io"/>
+    <link rel="self" href="https://loser-wang.github.io/atom.xml"/>
+    <subtitle>温故而知新</subtitle>
+    <logo>https://loser-wang.github.io/images/avatar.png</logo>
+    <icon>https://loser-wang.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2023, Gridea</rights>
+    <entry>
+        <title type="html"><![CDATA[Java日志梳理]]></title>
+        <id>https://loser-wang.github.io/post/java-ri-zhi-shu-li/</id>
+        <link href="https://loser-wang.github.io/post/java-ri-zhi-shu-li/">
+        </link>
+        <updated>2022-11-05T05:27:21.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="log4j">log4j</h1>
+<p>在Java1.4之前，JDK并没有日志。Apache基金会最早实现一套日志框架<strong>log4j</strong>，在Java1.4之前只有这一种选择。</p>
+<p>Log4j中有三个主要组成部分：</p>
+<ul>
+<li><strong>loggers:</strong> 负责捕获记录信息。</li>
+<li><strong>appenders :</strong> 负责发布日志信息，以不同的首选目的地。</li>
+<li><strong>layouts:</strong> 负责格式化不同风格的日志信息。</li>
+</ul>
+<h2 id="log4j框架">log4j框架</h2>
+<p>Log4j API设计为<strong>分层结构</strong>，其中每一层提供了不同的<strong>对</strong>象，对象执行不同的任务。这使得设计灵活，根据将来需要来扩展。</p>
+<p>有两种类型可用在Log4j的框架对象。</p>
+<ul>
+<li><strong>核心对象：</strong> 框架的强制对象和框架的使用。</li>
+<li><strong>支持对象：</strong> 框架和支持体核心对象，可选的对象执行另外重要的任务。</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/log4j.jpeg" alt="log4j" loading="lazy"></figure>
+<h3 id="核心对象">核心对象</h3>
+<ul>
+<li><strong>Logger对象</strong>：顶级层的Logger，它提供Logger对象。Logger对象负责捕获日志信息及它们存储在一个空间的层次结构。</li>
+<li><strong>布局(Layout)对象</strong>：该层提供其用于格式化不同风格的日志信息的对象。布局层提供支持Appender对象到发布日志信息之前。布局对象的发布方式是人类可读的及可重复使用的记录信息的一个重要的角色。</li>
+<li><strong>Appender对象</strong>：下位层提供Appender对象。Appender对象负责发布日志信息，以不同的首选目的地，如数据库，文件，控制台，UNIX系统日志等。</li>
+</ul>
+<h3 id="支持对象">支持对象</h3>
+<p>log4j框架的其他重要的对象起到日志框架的一个重要作用：</p>
+<ul>
+<li><strong>Level对象</strong>：级别对象定义的任何记录信息的粒度和优先级。有记录的七个级别在API中定义：OFF, DEBUG, INFO, ERROR, WARN, FATAL 和 ALL。</li>
+<li><strong>Filter对象</strong>：过滤对象用于分析日志信息及是否应记录或不用这些信息做出进一步的决定。一个appender对象可以有与之关联的几个Filter对象。如果日志记录信息传递给特定Appender对象，都和特定Appender相关的Filter对象批准的日志信息，然后才能发布到所连接的目的地。</li>
+<li><strong>对象渲染器</strong>：<strong>ObjectRenderer</strong>对象是一个指定提供传递到日志框架的不同对象的字符串表示。这个对象所使用的布局对象来准备最后的日志信息。</li>
+<li><strong>日志管理（LogManager）</strong>：日志管理对象管理的日志框架。它负责从一个系统级的配置文件或配置类读取初始配置参数。</li>
+</ul>
+<h2 id="log4j配置">log4j配置</h2>
+<p>配置log4j涉及<strong>分配级别</strong>，定义<strong>追加程序</strong>，并在<strong>配置文件</strong>中指定<strong>布局的对象</strong>。</p>
+<h3 id="log4jproperties">log4j.properties</h3>
+<ul>
+<li>
+<p><strong>根日志记录器</strong>(logger)的级别定义为DEBUG并连接**附加器(appender)**命名为X</p>
+</li>
+<li>
+<p>附加器X定义为org.apache.log4j.FileAppender, 并写入到一个名为“log.out”位于<strong>日志log</strong>目录下</p>
+</li>
+<li>
+<p>定义的布局模式是%m%n，这意味着每打印日志消息之后，将加上一个换行符</p>
+<pre><code class="language-text">  # Define the root logger with appender X 
+log4j.rootLogger = DEBUG, X
+# Set the appender named X to be a File appender
+log4j.appender.X=org.apache.log4j.FileAppender
+log4j.appender.X.File=${log}/log.out
+#Define the layout for X appender
+log4j.appender.X.layout=org.apache.log4j.PatternLayout
+log4j.appender.X.layout.conversionPattern=%m%n
+</code></pre>
+<p>需要注意的是log4j支持UNIX风格的变量替换，如 ${variableName}</p>
+</li>
+</ul>
+<h3 id="日志等级">日志等级</h3>
+<p>日志等级有如下：</p>
+<ul>
+<li><strong>ALL</strong></li>
+<li><strong>TRACE</strong></li>
+<li><strong>DEBUG</strong></li>
+<li><strong>INFO</strong></li>
+<li><strong>WARN</strong></li>
+<li><strong>ERROR</strong></li>
+<li><strong>FATAL</strong></li>
+<li><strong>OFF</strong></li>
+</ul>
+<p>级别p的级别使用q，在记录日志请求时，如果p&gt;=q启用。对于标准级别它们关系如下：ALL &lt; DEBUG &lt; INFO &lt; WARN &lt; ERROR &lt; FATAL &lt; OFF。</p>
+<h3 id="appenders">Appenders</h3>
+<p>Apache的log4j提供Appender对象主要负责打印日志消息到不同的目的地，如控制台，文件，sockets，NT事件日志等等。</p>
+<p>每个Appender对象具有与之相关联的不同的属性，并且这些属性表明对象的行为:</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>layout</td>
+<td>Appender使用布局Layout 对象和与之相关的格式化的日志记录信息转换模式</td>
+</tr>
+<tr>
+<td>target</td>
+<td>目标可以是一个控制台，一个文件，或根据附加器的另一个项目</td>
+</tr>
+<tr>
+<td>level</td>
+<td>级别是必需的，以控制日志消息的过滤</td>
+</tr>
+<tr>
+<td>threshold</td>
+<td>Appender可以有与之独立的记录器级别相关联的级别阈值水平。Appender忽略具有级别低于阈级别的任何日志消息</td>
+</tr>
+<tr>
+<td>filter</td>
+<td>Filter 对象可以分析超出级别的匹配记录信息，并决定是否记录的请求应该由一个特定 Appender 或忽</td>
+</tr>
+</tbody>
+</table>
+<p>可以通过包括以下方法的配置文件中的下面设置一个 Appender 对象添加到记录器：</p>
+<pre><code>log4j.logger.[logger-name]=level, appender1,appender..n 
+</code></pre>
+<p>可以编写以XML格式相同的结构如下：</p>
+<pre><code class="language-xml">&lt;logger name=&quot;com.apress.logging.log4j&quot; additivity=&quot;false&quot;&gt;   
+  &lt;appender-ref ref=&quot;appender1&quot;/&gt;    
+  &lt;appender-ref ref=&quot;appender2&quot;/&gt;
+&lt;/logger&gt;
+</code></pre>
+<p>我们仅使用一个附加目的地FileAppender在我们上面的例子。所有可能的附加目的地选项有：</p>
+<ul>
+<li>AsyncAppender</li>
+<li>ConsoleAppender</li>
+<li>FileAppender</li>
+<li>DailyRollingFileAppender</li>
+<li>JDBCAppender</li>
+<li>SMTPAppender</li>
+<li>SocketAppender</li>
+<li>......</li>
+</ul>
+<h3 id="layout">Layout</h3>
+<p>所有可能的选项有：</p>
+<ul>
+<li>DateLayout</li>
+<li>HTMLLayout</li>
+<li><strong>PatternLayout(最常用）</strong></li>
+<li>SimpleLayout</li>
+<li>XMLLayout</li>
+</ul>
+<p>使用HTMLLayout和XMLLayout，可以在HTML和XML格式和生成日志。</p>
+<pre><code># Define the root logger with appender file
+log = /usr/home/log4j
+log4j.rootLogger = DEBUG, FILE
+
+# Define the file appender
+log4j.appender.FILE=org.apache.log4j.FileAppender
+log4j.appender.FILE.File=${log}/htmlLayout.html
+
+# Define the layout for file appender
+log4j.appender.FILE.layout=org.apache.log4j.HTMLLayout
+log4j.appender.FILE.layout.Title=HTML Layout Example
+log4j.appender.FILE.layout.LocationInfo=true
+</code></pre>
+<pre><code class="language-java">public class log4jExample{
+  static Logger log = Logger.getLogger(log4jExample.class.getName());
+
+  public static void main(String[] args)
+                throws IOException,SQLException{
+
+     log.debug(&quot;Hello this is an debug message&quot;);
+     log.info(&quot;Hello this is an info message&quot;);
+  }
+}
+</code></pre>
+<h3 id=""></h3>
+<h1 id="juljava-util-log">JUL(Java Util Log)</h1>
+<p>在一段时间内，Log4j近乎成了Java社区的日志标准。据说Apache基金会还曾经建议Sun引入Log4j到java的标准库中，但Sun拒绝了。<br>
+终于在2002年Java1.4发布，Sun推出了自己的日志库J.U.L(jdk-logging)。但基本上是模仿Log4j的实现。有点儿鸡肋，但最起码解决了有无的问题。从此开发者有了两种选择。（虽然并不推荐JUL).</p>
+<h1 id="jclcommons-logging">JCL(Commons Logging)</h1>
+<p>因为有了两种选择，所以导致了日志使用的混乱。所以Apache推出了<strong>J.C.L</strong>(<strong>commons-logging</strong>)。它只是定义了一套日志接口，支持运行时动态加载日志组件。应用层编写代码时，只需要使用J.C.L提供的统一接口来记录日志，**在程序运行时会优先找系统是否集成Log4j，如果集成则使用Log4j做为日志实现，如果没找到则使用J.U.L做为日志实现。**J.C.L的出现解决了多种日志框架共存的尴尬，也是面向接口编程思想的一种具体体现。</p>
+<p>通过LogFactory获取Log类的实例； 第二步，使用Log实例的方法打日志。</p>
+<pre><code class="language-xml">&lt;!--引入common-logging--&gt;
+&lt;dependency&gt;
+   &lt;groupId&gt;commons-logging&lt;/groupId&gt;
+   &lt;artifactId&gt;commons-logging&lt;/artifactId&gt;
+   &lt;version&gt;1.2&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<pre><code class="language-java">import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+public class Main {
+    public static void main(String[] args) {
+        Log log = LogFactory.getLog(Main.class);
+        log.info(&quot;start...&quot;);
+        log.warn(&quot;end.&quot;);
+    }
+}
+</code></pre>
+<p>Commons Logging定义了6个日志级别：</p>
+<ul>
+<li>TRACE</li>
+<li>DEBUG</li>
+<li>INFO</li>
+<li>WARNING</li>
+<li>ERROR</li>
+<li>FATAL</li>
+</ul>
+<h1 id="slf4j基本概念">SLF4J基本概念</h1>
+<p>作为元老级日志 Log4j 的作者 (Ceki Gülcü)，他觉得 JCL 不够优秀，所以他再度出山，搞出了一套更优雅的日志框架 SLF4J（这个也是抽象层），即简单日志门面（Simple Logging Facade for Java），并为 SLF4J 实现了一个亲儿子——logback，确实更加优雅了。</p>
+<p>SLF4J代表_Simple Logging Facade for Java_。它提供了Java中所有日志框架的简单抽象。<br>
+<img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/slfj.png" alt="SLF4J" loading="lazy"></p>
+<p>如同使用JDBC基本不用考虑具体数据库一样，SLF4J提供了统一的记录日志的接口，只要按照其提供的方法记录即可，最终日志的格式、记录级别、输出方式等通过具体日志系统的配置来实现，因此可以在应用中灵活切换日志系统。比如：slf4j-simple、logback都是slf4j的具体实现；log4j并不直接实现slf4j，但是有专门的一层桥接slf4j-log4j12来实现slf4j。</p>
+<p>使用SLF4J时，结构如下：</p>
+<ul>
+<li><strong>slf4j-api(接口层)</strong>:这个包只有日志的接口，并没有实现</li>
+<li>各日志实现包的<strong>连接层</strong>( slf4j-jdk14, slf4j-log4j12):  各日志实现包的适配器</li>
+<li>各日志<strong>实现包</strong></li>
+</ul>
+<h1 id="slf4j集成logback">SLF4J集成logback</h1>
+<p>logback分成三个模块：</p>
+<ul>
+<li><strong>logback-core</strong> 提供了logBack的核心功能，是另外两个组件的基础；</li>
+<li><strong>logback-classic</strong>  模块实现了SLF4J API；</li>
+<li><strong>logback-access</strong>  模块与Servlet容器集成提供Http来访问日志的功能。</li>
+</ul>
+<h2 id="依赖">依赖</h2>
+<pre><code class="language-xml">&lt;!--slf4j --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+    &lt;version&gt;1.7.20&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- logback --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-core&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-access&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<h2 id="配置文件">配置文件</h2>
+<pre><code class="language-xml">&lt;!--每天生成一个文件，归档文件保存30天：--&gt;
+&lt;configuration &gt;
+
+    &lt;!--设置自定义pattern属性--&gt;
+    &lt;property name=&quot;pattern&quot; value=&quot;%d{HH:mm:ss.SSS} [%-5level] [%thread] [%logger] %msg%n&quot;/&gt;
+
+    &lt;!--控制台输出日志--&gt;
+    &lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;
+        &lt;!--设置控制台输出日志的格式--&gt;
+        &lt;encoder&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!--滚动记录日志文件：--&gt;
+    &lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+        &lt;!--当天生成的日志文件名称：--&gt;
+        &lt;file&gt;e:/log.out&lt;/file&gt;
+        &lt;!--根据时间来记录日志文件：--&gt;
+        &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+            &lt;!--归档日志文件的名称：--&gt;
+            &lt;fileNamePattern&gt;testLog-%d{yyyy-MM-dd}.log&lt;/fileNamePattern&gt;
+            &lt;!--归档文件保存30天--&gt;
+            &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+        &lt;/rollingPolicy&gt;
+        &lt;!--生成的日志信息格式--&gt;
+        &lt;encoder&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!--根root logger--&gt;
+    &lt;root level=&quot;DEBUG&quot;&gt;
+        &lt;!--设置根logger的日志输出目的地--&gt;
+        &lt;appender-ref ref=&quot;FILE&quot; /&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/root&gt;
+
+&lt;/configuration&gt;
+</code></pre>
+<h2 id="使用">使用</h2>
+<pre><code class="language-java">import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class slf4j_logbackDemo {
+    Logger logger=  LoggerFactory.getLogger(slf4j_logbackDemo.class);
+
+    @Test
+    public void test() {
+        logger.debug(&quot;debug message&quot;);
+        logger.info(&quot;info message&quot;);
+        logger.warn(&quot;warning message&quot;);
+        logger.error(&quot;error message&quot;);
+        logger.warn(&quot;login message&quot;);
+    }
+}
+</code></pre>
+<h2 id="配置文件详解">配置文件详解</h2>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/configuration.png" alt="配置文件" loading="lazy"></figure>
+<h3 id="configuration配置根节点">configuration：配置根节点</h3>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>scan：程序运行时配置文件被修改，是否重新加载。true，重新加载；false,不重新加载；默认为true;</li>
+<li>scanPeriod：监测配置文件被修改的时间间隔，scan属性必须设置为true才可生效；默认为1分钟，默认单位是毫秒；</li>
+<li>debug：是否打印logback程序运行的日志信息。true,打印；false,不打印；默认为false;</li>
+</ul>
+<h3 id="property属性变量">property：属性变量</h3>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;
+    &lt;property name=&quot;pattern&quot; value=&quot;%d{HH:mm:ss.SSS} [%-5level] [%logger] %msg%n&quot; &gt;
+    &lt;/property&gt;
+&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>name：变量的名称，可以随意起名，但建议名字要简明直译；</li>
+<li>value:变量的值；</li>
+</ul>
+<p>在配置文件中，我们可以用 ${} 的方式来使用，将变量引入到其他节点中去。如果有多处使用相同的内容，便可使用属性变量的方式进行统一，减少很多不必要的代码；</p>
+<h3 id="loggerlogger日志对象">logger<logger>：日志对象</h3>
+<p>logger分为2种，一种是普通日志对象，另一种是根日志对象。对于大部分应用来说，只设置根日志对象即可。在java日志系统中，无论是log4j还是logback，他们的日志对象体系都是呈现“树”的形式，根日志对象为最顶层节点，其余包或者类中的日志对象都继承于根日志节点；</p>
+<p>对于普通日志对象来说，我们可以设置某一个包或者某一个类的日志级别，还可以单独设置日志的输出目的地；</p>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;   
+    &lt;logger name=&quot;java.sql&quot; level=&quot;debug&quot; addtivity=&quot;true&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/logger&gt;   
+&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>name：用来指定此logger属于哪个包或者哪个类；</li>
+<li>level：用来指定此logger的日志打印级别；</li>
+<li>addtivity：是否<strong>向上传递日志打印信息</strong>。之前说了，logger对象呈现一个树的结构，根logger是树的顶端，下面的子logger的addtivity属性如果设置为true则会向上传递打印信息，出现<strong>日志重复打印</strong>的现象；</li>
+<li>appender-ref：日志输出目的地，将此logger所打印的日志交给此appender；</li>
+</ul>
+<p>值得注意的是，上面的例子中，如果此logger没有指定appender，而且addtivity也设置为true，那么此logger对应的日志信息只会打印一遍，是由root来完成的；但是如果addtivity设置成false，那么此logger将不会输出任何日志信息；</p>
+<h3 id="loggerroot根日志对象">logger<root>：根日志对象'</h3>
+<p><strong>root</strong>也是日志对象中的一种，但它位于logger体系中的最顶层。当一个类中的logger对象进行打印请求时，如果配置文件中没有为该类单独指定日志对象，那么都会交给root根日志对象来完成；</p>
+<p><strong>root</strong>节点中只有一个level属性，还可以单独指定日志输除目的地<apender-ref>;</p>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;   
+    &lt;root level=&quot;DEBUG&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/root&gt;
+&lt;/configuration&gt;
+</code></pre>
+<h3 id="appender日志输出目的地">appender：日志输出目的地</h3>
+<p>与log4j中的appender一样，logback中的<appender>节点也同样负责日志输出的目的地。</p>
+<p>appender中有2个必填属性: <strong>name</strong>和<strong>class</strong>。name为<appender>节点的名称，class为<appender>的全限定类名，也就是日志输出目的地的处理类。此外，我们还可以在<appender>中单独指定日志的格式，设置日志过滤器等操作；</p>
+<h4 id="consoleappender">ConsoleAppender</h4>
+<p>将日志输出到控制台，可以在其节点中设置<encoder>子节点，设置日志输出的格式；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;  
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg %n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+</code></pre>
+<h4 id="fileappender">FileAppender</h4>
+<p>将日志输出到具体的磁盘文件中，可以单独指定具体的位置，也可以设置日志的输出格式；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.FileAppender&quot;&gt;  
+    &lt;file&gt;e:/log.out&lt;/file&gt;  
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+</code></pre>
+<ul>
+<li><append>：新增的日志是否以追加到文件结尾的方式写入到log.out文件中，true为追加，fasle为清空现存文件写入；</li>
+<li><prudent>：日志是否被安全的写入磁盘文件，默认为false。如果为true，则效率低下</li>
+</ul>
+<h4 id="rollingfileappender">RollingFileAppender</h4>
+<p>滚动记录日志，当符合<rollingPolicy>节点中设置的条件时，会将现有日志移到新的文件中去。<rollingPolicy>节点中可设置的条件为：文件的大小、时间等；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+    &lt;file&gt;e:/log.out&lt;/file&gt;
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+        &lt;fileNamePattern&gt;testLog-%d{yyyy-MM-dd}.log&lt;/fileNamePattern&gt;
+        &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+    &lt;/rollingPolicy&gt;
+    &lt;encoder&gt;
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;
+    &lt;/encoder&gt;
+&lt;/appender&gt;
+</code></pre>
+<p>其中，rollingPolicy 有如下几种：</p>
+<ul>
+<li>TimeBasedRollingPolicy表示根据时间制定日志文件的滚动策略</li>
+<li>FixedWindowRollingPolicy表示如果日志文件大小超过指定范围时，会根据文件名拆分成多个文件；</li>
+<li>SizeBasedTriggeringPolicy表示根据日志文件大小，超过制定大小会触发日志滚动；</li>
+</ul>
+<h4 id="asyncappender">AsyncAppender</h4>
+<p>异步记录日志，内部通过使用缓存的方式来实现异步打印，将日志打印事件event放入缓存中。具体数据结构为BlockingQueue；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.FileAppender&quot;&gt;  
+    &lt;file&gt;e:/log.out&lt;/file&gt;  
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+&lt;appender name =&quot;ASYNC&quot; class= &quot;ch.qos.logback.classic.AsyncAppender&quot;&gt;  
+    &lt;discardingThreshold&gt;0&lt;/discardingThreshold&gt;  
+    &lt;queueSize&gt;512&lt;/queueSize&gt;  
+    &lt;appender-ref ref =&quot;FILE&quot;/&gt;  
+&lt;/appender&gt;  
+</code></pre>
+<ul>
+<li><queueSize>：指的是BlockingQueue的队列容量大小，默认为256个；</li>
+<li><discardingThreshold>：如果BlockingQueue中还剩余20%的容量，那么程序会丢弃TRACE、DEBUG和INFO级别的日志打印事件event，只保留WARN和ERROR级别的。为了保留所有的日志打印事件，可以将该值设置为0。</li>
+</ul>
+<h3 id="encoder">encoder</h3>
+<p>日志格式化节点，负责格式化日志信息。<encoder>只负责了两件事情，第一负责将日志信息转换成字节数组，第二将字节数组写到输出流当中去；<br>
+在<encoder>中使用<pattern>来设置对应的格式；</p>
+<pre><code class="language-xml">&lt;encoder&gt; 
+  &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;
+&lt;/encoder  
+</code></pre>
+<h1 id="slfj适配器">SLFJ适配器</h1>
+<p><strong>slf4j是通过自己的api去调用实现组件的api</strong>，这样来完成适配的。我们重点看看是怎么做到适配的。</p>
+<h2 id="slf4j集成log4j">SLF4J集成log4j</h2>
+<h3 id="依赖-2">依赖</h3>
+<pre><code class="language-xml">&lt;dependencies&gt;
+  
+   &lt;!-- 引入log4j需要log4j-api和log4j-core --&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j&lt;/artifactId&gt;
+      &lt;version&gt;1.2.17&lt;/version&gt;
+    &lt;/dependency&gt;
+
+
+  &lt;!-- 引入log4j12需要log4j-api和log4j-core
+   &lt;dependency&gt;
+       &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+       &lt;artifactId&gt;log4j-api&lt;/artifactId&gt;
+       &lt;version&gt;1.7.25&lt;/version&gt;
+  &lt;/dependency&gt;
+  &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j-core&lt;/artifactId&gt;
+     &lt;version&gt;1.7.25&lt;/version&gt;
+  &lt;/dependency&gt;
+  --&gt;
+
+    &lt;!-- 引入slfj接口--&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+      &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+      &lt;version&gt;1.7.25&lt;/version&gt;
+    &lt;/dependency&gt;
+  
+
+   &lt;!-- 引入适配器--&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j-slf4j-impl&lt;/artifactId&gt;
+      &lt;version&gt;1.7.25&lt;/version&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+</code></pre>
+<h3 id="配置文件-2">配置文件</h3>
+<pre><code>log4j.rootLogger = DEBUG,stdout,D
+
+# 配置日志信息输出目的地
+log4j.appender.stdout = org.apache.log4j.ConsoleAppender
+# Target是输出目的地的目标
+log4j.appender.stdout.Target = System.out
+# 指定日志消息的输出最低层次
+log4j.appender.stdout.Threshold = INFO
+# 定义名为stdout的输出端的layout类型
+log4j.appender.stdout.layout = org.apache.log4j.PatternLayout
+# 如果使用pattern布局就要指定的打印信息的具体格式ConversionPattern
+log4j.appender.stdout.layout.ConversionPattern = [%-5p] %d{yyyy-MM-dd HH:mm:ss} %l%m%n
+
+
+
+# 名字为D的对应日志处理
+log4j.appender.D = org.apache.log4j.DailyRollingFileAppender
+# File是输出目的地的文件名
+log4j.appender.D.File = LOG//app_debug.log
+#false:默认值是true,即将消息增加到指定文件中，false指将消息覆盖指定的文件内容
+log4j.appender.D.Append = true
+log4j.appender.D.Threshold = DEBUG
+log4j.appender.D.layout = org.apache.log4j.TTCCLayout
+</code></pre>
+<h3 id="使用-2">使用</h3>
+<pre><code class="language-java">import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
+public class TestLog{
+    private final static Logger logger = LoggerFactory.getLogger(TestLog.class);
+    public static void main(String[] args) {
+        logger.info(&quot;programer processing......&quot;);
+        logger.error(&quot;Programer error......&quot;);
+        logger.debug(&quot;start Debug detail......&quot;);
+    }
+}
+</code></pre>
+<h2 id="slf4j其他适配器">slf4j其他适配器</h2>
+<pre><code class="language-java">A. jul
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+            &lt;artifactId&gt;slf4j-jdk14&lt;/artifactId&gt;
+            &lt;version&gt;2.0.0-alpha1&lt;/version&gt;
+        &lt;/dependency&gt;
+ B. log4j
+          &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+            &lt;artifactId&gt;log4j-slf4j-impl&lt;/artifactId&gt;
+            &lt;version&gt;2.14.1&lt;/version&gt;
+        &lt;/dependency&gt;
+
+C.log4j2
+          &lt;dependency&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+            &lt;artifactId&gt;slf4j-log4j12&lt;/artifactId&gt;
+            &lt;version&gt;2.0.0-alpha1&lt;/version&gt;
+        &lt;/dependency&gt;
+D. logback
+         &lt;dependency&gt;
+            &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+            &lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+            &lt;version&gt;1.3.0-alpha5&lt;/version&gt;
+        &lt;/dependency&gt;
+</code></pre>
+<h1 id="slfj桥接器">slfj桥接器</h1>
+<p>现在还有一个问题，假如你正在开发应用程序所调用的组件当中已经使用了 JCL 的，还有一些组建可能直接调用了 java.util.logging，这时你需要一个桥接器（名字为 XXX-over-slf4j.jar）把他们的日志输出重定向到 SLF4J</p>
+<pre><code class="language-xml">&lt;!-- 配置 log4j 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;log4j-over-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.25&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- 配置 jcl 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;jcl-over-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.8&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- 配置 jul 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;jul-to-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.25&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<ul>
+<li>
+<p>所谓的桥接器就是一个假的日志实现工具，比如当你把 jcl-over-slf4j.jar 放到 CLASS_PATH 时，即使某个组件原本是通过 JCL 输出日志的，现在却会被 jcl-over-slf4j “骗到”SLF4J 里，然后 SLF4J 又会根据绑定器把日志交给具体的日志实现工具。</p>
+</li>
+<li>
+<p>需要把其他包中的目标包排掉。比如使用<code>jcl-over-slf4</code>时，先把其他地方的<code>commons-log</code>包排掉，这样就会加载<code>jcl-over-slf4</code>内部的<code>org.apache.commons.logging.LogFactory</code>而不是 <code>commons-log</code>内部的 <code>org.apache.commons.logging.LogFactory</code>.</p>
+<pre><code class="language-java">package org.apache.commons.logging;
+public abstract class LogFactory {
+  // ****
+static LogFactory logFactory = new SLF4JLogFactory();
+}
+</code></pre>
+</li>
+</ul>
+<h1 id="mdc">MDC</h1>
+<p><a href="https://www.jianshu.com/p/1dea7479eb07">MDC</a>（Mapped Diagnostic Context，映射调试上下文）是 log4j 和 logback 提供的一种方便在<strong>多线程条件下</strong>记录日志的功能。</p>
+<pre><code class="language-java">package org.slf4j;
+public class MDC {
+  // 将一个K-V的键值对放到容器，其实是放到当前线程的ThreadLocalMap中
+  public static void put(String key, String val);
+
+  // 根据key在当前线程的MDC容器中获取对应的值
+  public static String get(String key);
+
+  // 根据key移除容器中的值
+  public static void remove(String key);
+
+  // 清空当前线程的MDC容器
+  public static void clear();
+}
+</code></pre>
+<p>经常用来在日志中记录traceId,  在进程的trace上下文更改时进行设置：</p>
+<pre><code class="language-java">public class Slf4jMdcUpdater extends ContextListener {
+
+    private static final Slf4jMdcUpdater singleton = new Slf4jMdcUpdater();
+
+    private EagleEyeSlf4jMdcUpdater() {
+    }
+
+    public static Slf4jMdcUpdater getInstance() {
+        return singleton;
+    }
+
+    @Override
+    public void beforeSet(RpcContext_inner context) {
+        if (context != null) {
+            MDC.put(&quot;TRACE_ID&quot;, context.getTraceId());
+            MDC.put(&quot;RPC_ID&quot;, context.getRpcId());
+        } else {
+            MDC.remove(&quot;TRACE_ID&quot;);
+            MDC.remove(&quot;RPC_ID&quot;);
+        }
+    }
+}
+</code></pre>
+<p>参考：</p>
+<ul>
+<li>
+<p><a href="https://www.yiibai.com/log4j">易百教程-Log4J</a></p>
+</li>
+<li>
+<p><a href="https://www.liaoxuefeng.com/wiki/1252599548343744/1264738932870688">使用Commons Logging</a></p>
+</li>
+<li>
+<p><a href="https://www.cnblogs.com/warking/p/5710303.html">logback的使用和logback.xml详解</a></p>
+</li>
+</ul>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Java Properties配置梳理]]></title>
+        <id>https://loser-wang.github.io/post/java-properties-pei-zhi-shu-li/</id>
+        <link href="https://loser-wang.github.io/post/java-properties-pei-zhi-shu-li/">
+        </link>
+        <updated>2022-11-04T03:36:17.000Z</updated>
+        <content type="html"><![CDATA[<p>以数据库连接为例，展示如何进行属性配置。</p>
+<h1 id="直接使用">直接使用</h1>
+<p><code>JDBCUtil</code>对数据库进行操作:</p>
+<pre><code class="language-java">public class JDBCUtil {
+
+    public static final String URL = &quot;jdbc:mysql://localhost:3306/jdbctest&quot;;
+    public static final String USER = &quot;root&quot;;
+    public static final String PASSWORD = &quot;password&quot;;
+    public static final String DRIVER = &quot;com.mysql.cj.jdbc.Driver&quot;;
+
+    public static void main(String[] args) {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            // 1.加载驱动程序
+            Class.forName(DRIVER);
+            //2.获得数据库连接
+            conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            //3.操作数据库
+            stmt = conn.createStatement();
+            //4.实现增删改查
+            rs = stmt.executeQuery(&quot;SELECT * FROM user;&quot;);
+
+
+            //如果有数据,rs.next()返回true
+            while (rs.next()) {
+                System.out.println(&quot;username= &quot; + rs.getString(&quot;username&quot;) + &quot;, password= &quot;
+                        + rs.getString(&quot;password&quot;) + &quot;, name= &quot; + rs.getString(&quot;name&quot;));
+            }
+
+            stmt.close();
+            conn.close();
+        } catch (ClassNotFoundException ex1) {
+            ex1.printStackTrace();
+        } catch (SQLException ex2) {
+            ex2.printStackTrace();
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException sqlEx) {
+                    //
+                }
+                rs = null;
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException sqlEx) {
+                        //
+                    }
+                    conn = null;
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException sqlEx) {
+                            //
+                        }
+                        conn = null; //垃圾回收机制会更早地垃圾释放
+
+                    }
+                }
+            }
+        }
+    }
+</code></pre>
+<p>其中，<code>url</code>、<code>username</code>、<code>password</code>、<code>driverClassName</code>等数据库连接所需的参数属性直接在代码中写死，后续如果有变化，需要更改所有使用的地方。所以，现在需要把这些属性从代码中单独抽取到配置文件中。</p>
+<h1 id="属性读取">属性读取</h1>
+<p>将属性抽取到<code>datasource.properties</code>文件中:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<p>代码中使用<code>DataSource</code>对象：</p>
+<pre><code class="language-java">@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class DataSource {
+    private String driverClassName;
+    private String url;
+    private String username;
+    private String password;
+}
+</code></pre>
+<p>配置文件到对象的映射如下：</p>
+<pre><code class="language-java">public class DataSourceFactory {
+    public static DataSource getDataSource() throws IOException {
+        InputStream inputStream = DataSourceFactory.class.getResourceAsStream(&quot;/datasource.properties&quot;);
+        Properties properties = new Properties();
+        properties.load(inputStream);
+
+        DataSource dataSource = DataSource.builder()
+                .driverClassName(properties.getProperty(&quot;mydatasource.driverClassName&quot;))
+                .url(properties.getProperty(&quot;mydatasource.url&quot;))
+                .username(properties.getProperty(&quot;mydatasource.username&quot;))
+                .password(properties.getProperty(&quot;mydatasource.password&quot;))
+                .build();
+        return dataSource;
+    }
+}
+</code></pre>
+<p>然后我们的数据库操作代码就变成了：</p>
+<pre><code class="language-java">public class JDBCUtil {
+
+    public static void main(String[] args) {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            DataSource dataSource = DataSourceFactory.getDataSource();
+            // 1.加载驱动程序
+            Class.forName(dataSource.getUrl());
+
+            //2.获得数据库连接
+            conn = DriverManager.getConnection(dataSource.getUrl(), dataSource.getUsername(), dataSource.getPassword());
+            //3.操作数据库
+            stmt = conn.createStatement();
+            //4.实现增删改查
+            rs = stmt.executeQuery(&quot;SELECT * FROM user;&quot;);
+
+
+            //如果有数据,rs.next()返回true
+            while (rs.next()) {
+                System.out.println(&quot;username= &quot; + rs.getString(&quot;username&quot;) + &quot;, password= &quot;
+                        + rs.getString(&quot;password&quot;) + &quot;, name= &quot; + rs.getString(&quot;name&quot;));
+            }
+
+            stmt.close();
+            conn.close();
+        } catch (ClassNotFoundException ex1) {
+            ex1.printStackTrace();
+        } catch (Exception ex2) {
+            ex2.printStackTrace();
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException sqlEx) {
+                    //
+                }
+                rs = null;
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException sqlEx) {
+                        //
+                    }
+                    conn = null;
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException sqlEx) {
+                            //
+                        }
+                        conn = null; //垃圾回收机制会更早地垃圾释放
+
+                    }
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<h1 id="propertysource">PropertySource</h1>
+<p>在Spring项目中可以使用<code>PropertySource</code>配置文件到对象的映射:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<pre><code class="language-java">@Data
+@Component
+@PropertySource(&quot;datasource.properties&quot;)
+public class DataSource {
+    @Value(&quot;${mydatasource.driverClassName}&quot;)
+    private String driverClassName;
+
+    @Value(&quot;${mydatasource.url}&quot;)
+    private String url;
+
+    @Value(&quot;${mydatasource.username}&quot;)
+    private String username;
+
+    @Value(&quot;${mydatasource.password}&quot;)
+    private String password;
+}
+</code></pre>
+<p><code>DataSource</code>能够直接当作<code>bean</code>使用</p>
+<h1 id="configurationproperties">ConfigurationProperties</h1>
+<p>在SpringBoot项目中可以使用<code>ConfigurationProperties</code>实现配置文件(application.yml或者application.properties) 到对象的映射:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<pre><code class="language-java">@Configuration
+@ConfigurationProperties(prefix = &quot;mydatasource&quot;)
+@Data
+public class DataSource {
+
+    private String driverClassName;
+
+    private String url;
+
+    private String username;
+
+    private String password;
+}
+</code></pre>
+<h1 id="配置中心">配置中心</h1>
+<p>如nacos：<a href="https://nacos.io/zh-cn/docs/quick-start-spring-boot.html">https://nacos.io/zh-cn/docs/quick-start-spring-boot.html</a></p>
+<ol>
+<li>添加依赖。</li>
+</ol>
+<pre><code class="language-java">&lt;dependency&gt;
+ &lt;groupId&gt;com.alibaba.boot&lt;/groupId&gt;
+ &lt;artifactId&gt;nacos-config-spring-boot-starter&lt;/artifactId&gt;
+ &lt;version&gt;${latest.version}&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<ol start="2">
+<li>在 application.properties 中配置 Nacos server 的地址：</li>
+</ol>
+<pre><code class="language-latex">nacos.config.server-addr=127.0.0.1:8848
+</code></pre>
+<ol start="3">
+<li>使用 @NacosPropertySource 加载 dataId 为 example 的配置源，并开启自动更新：</li>
+</ol>
+<pre><code class="language-java">@SpringBootApplication
+@NacosPropertySource(dataId = &quot;example&quot;, autoRefreshed = true)
+public class NacosConfigApplication {
+
+ public static void main(String[] args) {
+     SpringApplication.run(NacosConfigApplication.class, args);
+ }
+}
+</code></pre>
+<ol start="4">
+<li>通过 Nacos 的 @NacosValue 注解设置属性值。</li>
+</ol>
+<pre><code class="language-java">@Controller
+@RequestMapping(&quot;config&quot;)
+public class ConfigController {
+
+ @NacosValue(value = &quot;${useLocalCache:false}&quot;, autoRefreshed = true)
+ private boolean useLocalCache;
+
+ @RequestMapping(value = &quot;/get&quot;, method = GET)
+ @ResponseBody
+ public boolean get() {
+     return useLocalCache;
+ }
+}
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[实习再体验-美团基础架构]]></title>
+        <id>https://loser-wang.github.io/post/xia-yi-zhan-mei-tuan-ji-chu-jia-gou-shi-xi/</id>
+        <link href="https://loser-wang.github.io/post/xia-yi-zhan-mei-tuan-ji-chu-jia-gou-shi-xi/">
+        </link>
+        <updated>2022-10-15T00:56:34.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="why-美团">why 美团</h2>
+<p>去年在飞猪做了10个月的业务之后，我觉得作为一个实习生，不可能负责真正有技术含量的工作。在怎么实习下去，也无非是熟练度的问题，不会再有技术上的提升了。再加上最后一段时间，我的时间都花费线上工单、问题解答和开会上面了，并没有怎么写代码。于是，我希望能换一个更有技术挑战的地方实习，于是我就投了美团的基础研发团队，也非常幸运地拿到了offer。</p>
+<p>不得不说，从春招的时候，我就隐隐约约感受到今年形势的艰难，当时我投腾讯ieg，面了两轮，然后听说腾讯要大裁员了，后面果然我的流程中止了。我实习的时候，美团的师兄也告诉我，在我之后其实还是有几个实习生通过了流程，但是美团也开始裁员了，把他们的流程都中止了。</p>
+<p>说实话，还是有一点小幸运的，从现在来看，美团实习转正真的是今年为数不多的一股清流了。让我秋招并没有那么紧张。</p>
+<h2 id="避不开的疫情">避不开的疫情</h2>
+<p>今年实习，其实是很难避开疫情的。我三月多从飞猪离职，本来定的4月多去美团实习。但是北京健康宝一直有弹窗，每天各种打市民热线反馈也没用。</p>
+<p>然后，我申请远程办公，领导没有批准，说要保证实习质量。然后到了4月底，我的弹窗终于消失了，立马出发去北京。但是造化弄人，我刚到北京，北京正好爆发一波疫情，全员居家办公，相当于白来了。</p>
+<p>很快我就体会到为啥领导之前不批准远程实习了，5月份一个月居家办公对我一个实习生来说，真的是纯纯等于摸鱼。</p>
+<p>值得一题的是，5月居家我自己做饭一个月，居然瘦了十斤。不过后来又迅速肥了起来。</p>
+<h2 id="团队氛围">团队氛围</h2>
+<p>不得不说，我是相当幸运的，每次去的团队氛围都不错。我在美团的组内，大家关系也是很和谐，每天吃完饭，都会一起围着恒电东侧的小树林逛一圈，聊聊技术和实时。内部还有个吹水群，今年实习四个月，不得不说世界风起云涌，有的是吐槽的新闻。</p>
+<p>团队虽然人也不多，才10人，但是还是有不少技术大神的，有几个师兄经常在美团技术博客上发表文章。和他们一起讨论，真的是能学到很多。</p>
+<p>今年八月初，大家还用团建费包车去赛上草原去团建。这也是我第一次去草原，不管是草原、骑马、烤羊肉、还是越野车兜风，都是我第一次参加。而且之前身为直男的我，从来不怎么拍照片, 这次领导、师兄、师姐们还是给我拍了不少照片，留作回忆。</p>
+<h2 id="技术成长">技术成长</h2>
+<p>一说技术成长，不得不说很惭愧，在美团其实基本没有产出，每天都在带薪学习，爽的飞起。这也要感谢mentor和坐我旁边的leader的包容。</p>
+<p>美团对实习生的培养，还是要点赞的。之前我在阿里实习的时候，实习生的权限是非常小的，连atta的权限都没有。而美团这边基本各种资料、博客我都有权限看。</p>
+<p>因为团队是基础研发，会有很多和操作系统、网络相关的东西。之前做业务的时候，我从来不需要考虑到这些，所以周会的时候我一般都一脸懵逼。好在美团侧重文档文化，师兄师姐们的wiki还是写的很详细的，从中真的是受益匪浅。而且美团基础架构团队的技术分享还是很多的，我就经常会听一些大佬在内部的技术分享。</p>
+<p>实习四个月，真的是从0开始学了好多，每次学习都感觉是递归式的学习，学A发现B不会，学B发现C不会，以此类推，不过最后总能到操作系统上。于是我也开始学习操作系统了，之前408和八股真的是硬背式的纸上谈兵，其实我对操作系统一窍不通。虽然学习的时候感觉无比艰难，但是不知不觉也学到了很多很多的东西，之前零拷贝、page cache、两阶段提交等知识，其实我只是背背八股，但是现在真的在项目中看到他们如何使用了。</p>
+<p>此外，实习四个月，团队内部每周会轮流做技术分享，我有幸做了两次技术分享。真的感觉做技术分享式的学习和普通的自学根本不同，会更加系统化和深入。感觉每次基本都是到分享当前，我的稿子都在不断地大改。</p>
+<p>当然，最大的收获莫过于让我破除了对底层的恐惧。在我刚转行乃至搞业务这么长时间，我其实对底层技术一直心生恐惧的。比如使用消息中间件和RPC的时候，我最多看看别人写的技术分析，但是我从来不会自己扒源码来看。难道是自己真的不可能看懂么，不，其实是害怕。但是现在的话，我对自己扒代码看懂更加感兴趣和有成就感。</p>
+<h2 id="关于玩">关于玩</h2>
+<p>相对于杭州，北京的熟人还是不少的，只不过因为疫情，大家出来聚一次也不容易。和我几个高中同学聚了几次。</p>
+<p>期间，我的一个大学哥们，到美团当了一周产品跑路帝国理工了，但是在我这住了将近一个月。一到周末，俩人一起就是胡吃海喝，我的身材彻底GG。</p>
+<p>在北京没怎么出去玩过，就刚来北京的时候出去逛了逛。能自由活动的时候都已经六七月了，当时天气太热了，我丧失了动力。最遗憾的是，一直想去天大看看，也没能去成。</p>
+<p>但即便这样，有时候还是难免感觉到孤单，可能这就是北漂的感受吧。可惜我的圈子太小了，根本找不到对象。</p>
+<h2 id="下一站家里蹲">下一站，家里蹲</h2>
+<p>美团实习工资还是太低了，在北京过的并不舒服。趁着没毕业前，我想回家躺平，毕竟毕业就没机会了，就离职了。没想到回到家躺平是躺平了，但是真的好无聊啊，同学朋友一个都没有。如果有河南、周口或者其他地方的xdm也像我一样躺平没事干，可以交流一波。</p>
+<p>之前几个师兄暗示我最后的结果可能挺棒的，所以今年秋招也是很佛系。但是昨天开奖了，给的价格并不满意，不过好歹比白菜高那么一丢丢。我知道鸡架的ssp基本都是校招，可能美团更喜欢刮彩票，而不是实习生吧。</p>
+<p>又到了人生下一个节点的岔路口了，目前下一站会向何方，我也有那么一丝丝的犹豫和迷茫。一直以来都在匆忙赶路，都在焦虑，都在卷自己，没有静下好好思考自己究竟想要什么。但现实是，这样并不是真正&quot;有效&quot;的付出。希望这段时间难得在家有时间，能静下心好好想想自己究竟想要什么吧。</p>
+<blockquote>
+<p>ps: 有时候真的也感觉赶上今年真的挺倒霉的，哎。大家明明学历、实习、面试都表现其实都不错，但就是比往年更难收到offer。即使地狱模式收到的offer, 价位其实也不尽人意。</p>
+<p>但我们也不能放弃，争取拿到全局最差区间的最优解吧。共勉，人生的道路还很长，一时的offer也说明不了什么。最近看到阿里和虾皮的22届，明明那么优秀，收到这么高的offer，但是最终应届被裁一场空，也感觉很悲哀的。</p>
+<p>现在脑子有点乱，后面有空梳理一下今年以来被各种离谱消息冲击的乱七八糟的职场感悟吧。</p>
+</blockquote>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[实习初体验-飞猪10月]]></title>
+        <id>https://loser-wang.github.io/post/shi-xi-chu-ti-yan-fei-zhu-10-yue/</id>
+        <link href="https://loser-wang.github.io/post/shi-xi-chu-ti-yan-fei-zhu-10-yue/">
+        </link>
+        <updated>2022-10-13T09:39:50.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="实习初体验-飞猪10月">实习初体验-飞猪10月</h1>
+<p>在飞猪实习了将近10个月，这10个月真的对我来说太珍贵了，趁着这次活动回忆梳理一下实习经历。</p>
+<h2 id="why飞猪">why飞猪？</h2>
+<p>去年春招刚开始的时候，我的预期是进个中小厂先实习积累经验，然后再跳大厂进行实习。一开始确实是面试挺不顺的，加上当时因为疫情上半学期的考试周推迟到下半学期开学了(也就是春招的时候), 然后我这边和前女友也正不顺，所以前期都感觉想放弃了。 但是去年的确是形式比较好，考试周结束以及分手后有幸拿了4个公司的offer:</p>
+<ul>
+<li>百度智能小程序的Java岗</li>
+<li>美团酒旅的Java后端开发</li>
+<li>腾讯TEG的CDN</li>
+<li>飞猪的Java后端开发</li>
+</ul>
+<p>去年的我其实还不知道 <strong>“组 &gt; 项目 &gt; 部门 &gt; 公司&quot;</strong> 这条朴素的真理，自然心中只有阿里和腾讯了。然后，身为一个刚转行后端大半年，甚至春招简历上的项目都是前端的转专业菜鸡，连CURD的项目其实都没搞过，我当时对自己十分缺乏自信，所以不敢去腾讯零基础学习C++进行服务器底层的开发。</p>
+<p>综上，飞猪是当时我认为的最佳选择。现在事后诸葛亮地来说，还是一个不错的选择，因为去了一个团队氛围还是相当和谐的组。</p>
+<h2 id="租房惨痛教训">租房惨痛教训</h2>
+<p>实习第一件事自然就是租房了，其实一开始我没把这放在心上，因为我自认为睡眠能力很强，本科两个室友打呼噜，又一个甚至磨牙，我都能不受影响地睡四年。加上我小时候生活在农村，差一点的环境我也不care。</p>
+<p><strong>结果年轻的我被上了惨痛的一课。</strong></p>
+<p>当时我听别人说不要上自如，会比自己找贵很多。我就去豆瓣的租房群搜索余杭租房，结果年轻的小白遇到了二房东。不得不吐槽一下，豆瓣上等平台的租房消息已经被二房东给霸占了，很难从中找到真正房东发布的房子。</p>
+<p>我当时图便宜，看中一个月租1750的，因为没经验，过去看了看就决定租了。结果房子是隔断房，不隔音，隔壁的室友真的吵，大半夜突然就唱歌。这还不是最致命的，这个小区临着马路，但是外窗不怎么隔音。我看房的时候是白天，根本不吵，没有察觉到。当时余杭正搞基建呢，越到半夜，大货车就越多，声音巨吵。</p>
+<p>我尝试好多方法，比如耳塞、带耳机听音乐等，但都不管用。忍了20来天，决定跑路，押一付一3500元全没了。我知道阿里员工在自如可以免费换房子，就选择自如了，这一次运气比较好，2000多在欧美金融城那个小区租了不错的房间。</p>
+<p>但是自如需要押一付三，加上前面损失的押一付一，第一个月我还没挣钱，就有1w多的支出了。当时也是各种借钱，惨的一批。</p>
+<p>我的教训就是：</p>
+<ul>
+<li>不要急着租到房，哪怕多住几天宾馆，也得货比三家，找到真正合适的房子，睡眠充足才是最重要的。</li>
+<li>小心二房东，不管对方怎么说，只要一般朋友圈都是房源的，肯定是二房东。</li>
+<li>别选隔断房，能选择小区合租还是小区合租。</li>
+<li>隔音，隔音，还是隔音！</li>
+</ul>
+<h2 id="团队氛围">团队氛围</h2>
+<p>也是从飞猪实习开始，我才体会到 &quot;组  &gt;  公司&quot;这个道理。不过幸运的是，我们组内氛围相当好，没有传说中的PUA,和阿里味。</p>
+<p>每天中午大家都一起去食堂吃饭，并且围着大楼转个两圈散散步。平时有任何不会的问题，可以找组内任何一个师兄问，他们都会给我耐心解答，还会告诉我到哪里去学习。每个月都会去撸个串，喝点啤酒，吹吹牛聊聊天。周末还去打了几次麻将，不过我每次都是送财童子，基本凭着感觉打，不像他们各种算牌做牌（ps: 做牌的人心都脏）。今年年初还去团建滑雪+泡温泉。</p>
+<p>实习十个月，我基本和每个师兄的关系都还不错，不会存在和谁一起尴尬的情况。哪怕离职很久了，有时候还会聊聊天，吐吐槽。其中leader在今年寒冬下，还说如果去飞猪，可以帮我搞一份offer,真的是很感动。第一份实习就能遇到这么一帮人，真的可以说是很幸运。</p>
+<h2 id="技术成长">技术成长</h2>
+<p>毫无疑问，飞猪的10个月我的技术得到很大成长。毕竟我的底子太烂了，在此之前连CURD的玩具项目都没做过。当我和师兄一起做项目的时候，才第一次听说RPC、消息中间件这些东西。这十个月虽然干的也都是一些算不上有技术含量的活，但是也算是对基本的开发流程、开发工具、中间件等有了从无到有的了解。</p>
+<p>实习的十个月也是见证了不少难处理的线上BUG,  比如漫SQL、本地缓存太大导致频繁GC，甚至还有一次我感觉差点造成很大资损的BUG。虽然每次都是师兄排查解决的，但是旁观排除过程、询问排查思路，也让我学到了很多排查问题的方法。</p>
+<p>师兄们对我也比较信任和放权，经常给我一个独立的小模块，让我自己来负责，他们给我把关技术方案，让我和产品、运营、测试、上下游以及跨团体、跨部门（比如淘宝、CTO)的开发人员进行沟通协调。（ps:也学会了打太极，找产品要排期)。</p>
+<p>师兄们的技术普遍都还不错，其中龙哥真的是我之前遇到过技术最好的人，主要负责团队的架构和增效工具。真的感觉不管问他什么问题，他都会。而且给了我很多技术学习上的建议，是我梦想中想要成为的样子。</p>
+<p>在我离职的时候，不管上产品、运营、测试对我的评价都是还挺靠谱的小伙子，这对我来说是很大的鼓舞，让我从之前一个很不自信的转专业菜鸡变成一个有自信的软件研究生，相信自己能在这条路上走下去。</p>
+<p>不过我自己还是有点偷懒，基本都是师兄给我安排的CURD的活，而没有主动要一些有挑战性的工作。导致我今年秋招的时候，面试官问我有什么技术上的挑战，其实回答都是我编的（哈哈，看过的就是我的）。现在想想有点浪费机会，十个月其实到后期成长并不大了。</p>
+<p>个人对实习生的建议是不要害怕沟通，也不要害怕自己能力不够，积极地向师兄要一些有挑战性的活，这样子不管是转正还是秋招都是加分项（ps：主要是实习生不用背锅，干嘛不试试呢？）。</p>
+<h2 id="拥抱变化">拥抱变化</h2>
+<p>实习十个月真的是感觉不停地在拥抱变化，实习十个月经历了两个产品（但是是ABA，相当于三任)、四个测试，每一次都要重新磨合，也让我感受到了互联网公司架构调整的频繁。</p>
+<p>而且去年年底的一次架构调整，我原来的团队负责做另一个比较重要的项目，不需要实习生参与了。我就告别带我的两个师兄，带着项目投奔另一个组了(ps: 其实就隔了几排桌子)。在过渡期间，我短暂地成为了aone上面的项目owner。但是我个人能力根本无法胜任，每天一堆人找我问接口，一堆线上工单都提给我，每周还要被拉一堆会议，真的是很痛苦的过渡期。</p>
+<h2 id="开始健身">开始健身</h2>
+<p>实习期间，有一段时间我感觉身体特别不舒服，腰疼没精神，就想去锻炼一下。然后公司对面正好有一家乐刻健身，私教包月才2500，就报了。</p>
+<p>大概跟着私教练了四个月，每周3到4次。一般都是6点吃晚饭的时候，我直接去健身房，边锻炼边吃点免费的水果补充糖分。练到7点，去食堂吃饭，然后7点半到工位摸摸鱼。周末都在家玩，不去健身房。感觉自己真的是摸鱼的天才，也感谢领导们对我的包容。后面其实还有师兄和我一起摸鱼健身。</p>
+<p>去年我真感觉自己的身材挺不错的，洗澡的时候都喜欢臭美地对着镜子摆造型。不过12月因为疫情，我趁机偷懒，就中止了锻炼，俺滴好身材也迅速走样了。最近在家才开始重新锻炼，这一次一定要坚持下去。</p>
+<h2 id="拥有自己的小猫咪">拥有自己的小猫咪</h2>
+<p>从小都想养一只自己属于的小猫小狗，实习两个月后，我感觉时机成熟了，有能力负责任地养一只宠物。实习合租肯定养不了狗，所以选择小猫咪。</p>
+<p>当时在闲鱼上，一眼就相中了一只小橘猫，就立马过去买了，并且起名为“元宝”（哈哈，原谅我是个财迷）。幸运过地收获了一只听话粘人的小猫咪，每天下班打卡客厅的大门，就能听过猫咪急切的叫声。每天下班都感觉很幸福，有猫等着的感觉真不错。</p>
+<p>不过太粘人也并不总是好事，每天六七点，元宝就会跳上我的床，一直舔我的脸。猫咪舌头上的倒刺还是挺不舒服的，根本睡不着。我都会迷迷糊糊把猫一扔，然后蒙住被子睡。</p>
+<p>期间也生过一次大病，一直呕吐，一晚上能吐七八次，吃东西吐东西，不吃东西吐黄水。去宠物医院忙前忙后一个礼拜花了一两千，所以养猫还是要慎重的，没有经济基础还是不要轻易养。这就要感谢公司给的还不错的实习工资了。</p>
+<h2 id="我的精神内耗">我的精神内耗</h2>
+<p>身为本科水利，研究生才转行软件的跨行狗，对自己一步步走来还是很自豪的，但是有的时候还是会突然有一种很遗憾的感觉，觉得自己浪费了好多时间。</p>
+<p>尤其是和我一起实习的本科实习生，感觉人家本科阶段就看了好多源码，折腾了好多技术，水平远远在我之上。还有一些同学，他们科班出身，研究生就稳稳地研究数据库等技术含量很高的领域，两三年也有了知识壁垒，然后顺利成章地就去了高门槛的领域。</p>
+<p>而我自己一步步走来，好像一直在火急火燎地学习一些很基础的东西，研究生才学习Java Web, 接着开始业务开发的实习，马上又秋招，履历和实力也无法进入那些高门槛的领域，真的没感觉自己比培训班出来的强多少。</p>
+<p>有时候感受到自己和别人的差距或者夜深人静的时候，就难免会想像如果自己本科就选了CS或者软件，没有浪费四年的话，可能会迈向更深的领域吧。</p>
+<p>至今还没有解决这个内耗，或许将来我成为一个更优秀的码农的时候，会彻底翻篇吧。</p>
+<h2 id="启航下一站">启航下一站</h2>
+<p>天下没有不散的宴席，实习了十个月，我还是决定迈出舒适区，想去体验不同的方向，就提了离职。当然也正是这十个月给了我勇气和信心，让我相信自己确实有能力吃上这碗饭，相信自己能够胜任哪怕更底层的方向。Just move on !</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[线程同步&异步]]></title>
+        <id>https://loser-wang.github.io/post/xian-cheng-tong-bu-andyi-bu/</id>
+        <link href="https://loser-wang.github.io/post/xian-cheng-tong-bu-andyi-bu/">
+        </link>
+        <updated>2022-08-09T15:11:18.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="同步异步">同步&amp;异步</h1>
+<h2 id="1-同步等待">1. 同步等待</h2>
+<h3 id="11-什么是保护性暂停">1.1 什么是保护性暂停</h3>
+<blockquote>
+<p>In concurrent programming, <strong>guarded suspension</strong> is a software design pattern for managing operations that require both <strong>a lock to be acquired and a precondition to be satisfied</strong> before the operation can be executed. The guarded suspension pattern is typically applied to method calls in object-oriented programs, and involves suspending the method call, and the calling thread, until the precondition (acting as a guard) is satisfied.</p>
+<p>—— wikipedia</p>
+</blockquote>
+<p>保护性暂停模式是让一个线程等待另一个线程的结果。</p>
+<p>举个例子说明：现在有两个线程，Thread1负责写入结果，Thread2负责读取结果。</p>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/%E5%90%8C%E6%AD%A5.svg" alt="同步" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        //公共变量
+        AtomicReference&lt;Integer&gt; response = new AtomicReference&lt;&gt;(null);
+
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            response.set(1);
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            System.out.println(response.get());
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+
+}
+</code></pre>
+<p>按照上面的代码，两个线程独立执行，thread2能否获取response的值全靠缘分。</p>
+<p>既然要控制先后顺序，自然就要使用wait和notify进行同步(先忽略join、future、CountdownLatch等同步工具）</p>
+<pre><code>import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        //公共变量
+        AtomicReference&lt;Integer&gt; response = new AtomicReference&lt;&gt;(null);
+
+        Thread thread1 = new Thread(()-&gt;{
+                System.out.println(&quot;thread1 before set .....&quot;);
+                synchronized(response) {
+                    response.set(1);
+                    response.notify();
+                }
+
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+                System.out.println(&quot;thread2 before get .....&quot;);
+                synchronized(response) {
+                    //如果已有response直接获取，否则阻塞
+                    if (response.get() == null){
+                        try {
+                            response.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    System.out.println(response.get());
+
+                }
+
+                System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+
+}
+</code></pre>
+<p>为了代码的简洁和易用，我们将同步逻辑封装到一个对象中，就实现了一个简易的保护性暂停对象：</p>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/%E4%BF%9D%E6%8A%A4%E6%80%A7%E6%9A%82%E5%81%9C.svg" alt="保护性暂停" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+
+        GuardObject guardObject = new GuardObject();
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            guardObject.setObj(1);
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            try {
+                System.out.println(guardObject.getObj());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+   static class GuardObject{
+        private Integer response;
+
+        public synchronized int getObj() throws InterruptedException {
+            if(response == null){
+                wait();
+            }
+            return response;
+        }
+
+        public synchronized void setObj(Integer value){
+            response = value;
+            notify();
+        }
+    }
+}
+</code></pre>
+<p>JDK中的thread.join、FutureTask都是用保护性暂停的设计模式来实现的。</p>
+<h3 id="12-futuretask">1.2 FutureTask</h3>
+<figure data-type="image" tabindex="3"><img src="" alt="" loading="lazy"></figure>
+<ol>
+<li>入口： <code>excutor.submit(callable)</code></li>
+</ol>
+<figure data-type="image" tabindex="4"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/excutor.png" alt="excutor" loading="lazy"></figure>
+<ol start="2">
+<li>生成<code>RunnableFuture</code>， 加入Worker。线程池会把<code>Callable</code>对象包装进 <code>RunnableFuture</code>。 <code>RunnableFuture</code>既是<code>Future</code>又是<code>Runnable</code>。然后执行该</li>
+</ol>
+<pre><code class="language-java">// java.util.concurrent.AbstractExecutorService
+
+/**
+* @throws RejectedExecutionException {@inheritDoc}
+* @throws NullPointerException       {@inheritDoc}
+*/
+public &lt;T&gt; Future&lt;T&gt; submit(Callable&lt;T&gt; task) {
+    if (task == null) throw new NullPointerException();
+    RunnableFuture&lt;T&gt; ftask = newTaskFor(task);
+    execute(ftask);
+    return ftask;
+} 
+
+
+protected &lt;T&gt; RunnableFuture&lt;T&gt; newTaskFor(Callable&lt;T&gt; callable) {
+    return new FutureTask&lt;T&gt;(callable);
+}
+</code></pre>
+<ol start="3">
+<li>工作线程调用 <code>FuturerTask</code>的run方法。</li>
+</ol>
+<pre><code class="language-java">// java.util.concurrent.ThreadPoolExecutor#addWorker   
+    final void runWorker(Worker w) {
+        Thread wt = Thread.currentThread();
+        Runnable task = w.firstTask;
+        w.firstTask = null;
+        w.unlock(); // allow interrupts
+        boolean completedAbruptly = true;
+        try {
+            while (task != null || (task = getTask()) != null) {
+                w.lock();
+                // If pool is stopping, ensure thread is interrupted;
+                // if not, ensure thread is not interrupted.  This
+                // requires a recheck in second case to deal with
+                // shutdownNow race while clearing interrupt
+                if ((runStateAtLeast(ctl.get(), STOP) ||
+                     (Thread.interrupted() &amp;&amp;
+                      runStateAtLeast(ctl.get(), STOP))) &amp;&amp;
+                    !wt.isInterrupted())
+                    wt.interrupt();
+                try {
+                    beforeExecute(wt, task);
+                    Throwable thrown = null;
+                    try {
+                        task.run();
+                    } catch (RuntimeException x) {
+                        thrown = x; throw x;
+                    } catch (Error x) {
+                        thrown = x; throw x;
+                    } catch (Throwable x) {
+                        thrown = x; throw new Error(x);
+                    } finally {
+                        afterExecute(task, thrown);
+                    }
+                } finally {
+                    task = null;
+                    w.completedTasks++;
+                    w.unlock();
+                }
+            }
+            completedAbruptly = false;
+        } finally {
+            processWorkerExit(w, completedAbruptly);
+        }
+    }
+</code></pre>
+<ol start="4">
+<li>Future调用get, 如果没有返回值(<code>outcome</code>变量)，会将当前线程封装进WaitNode，并调用<code>UNSAFE.compareAndSwapObject(this, waitersOffset,q.next = waiters, q)</code>存入waiters（头插法）, 然后调用<code>LockSupport.unpark</code>阻塞当前线程。</li>
+</ol>
+<pre><code class="language-java">//java.util.concurrent.FutureTask
+	public V get() throws InterruptedException, ExecutionException {
+        int s = state;
+        if (s &lt;= COMPLETING)
+            s = awaitDone(false, 0L);
+        return report(s);
+	}
+
+
+    /**
+     * Returns result or throws exception for completed task.
+     *
+     * @param s completed state value
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private V report(int s) throws ExecutionException {
+        Object x = outcome;
+        if (s == NORMAL)
+            return (V)x;
+        if (s &gt;= CANCELLED)
+            throw new CancellationException();
+        throw new ExecutionException((Throwable)x);
+    }
+
+
+    /**
+     * Awaits completion or aborts on interrupt or timeout.
+     *
+     * @param timed true if use timed waits
+     * @param nanos time to wait, if timed
+     * @return state upon completion
+     */
+    private int awaitDone(boolean timed, long nanos)
+        throws InterruptedException {
+        final long deadline = timed ? System.nanoTime() + nanos : 0L;
+        WaitNode q = null;
+        boolean queued = false;
+        for (;;) {
+            if (Thread.interrupted()) {
+                removeWaiter(q);
+                throw new InterruptedException();
+            }
+
+            int s = state;
+            if (s &gt; COMPLETING) {
+                if (q != null)
+                    q.thread = null;
+                return s;
+            }
+            else if (s == COMPLETING) // cannot time out yet
+                Thread.yield();
+            else if (q == null)
+                q = new WaitNode();
+            else if (!queued)
+                queued = UNSAFE.compareAndSwapObject(this, waitersOffset,
+                                                     q.next = waiters, q);
+            else if (timed) {
+                nanos = deadline - System.nanoTime();
+                if (nanos &lt;= 0L) {
+                    removeWaiter(q);
+                    return state;
+                }
+                LockSupport.parkNanos(this, nanos);
+            }
+            else
+                LockSupport.park(this);
+        }
+    }
+</code></pre>
+<ol start="5">
+<li><code>FuturerTask</code>的run方法执行完毕，通过<code>set(result)</code>将结果赋值给<code>outcome</code>, 并激活<code>waiters</code>中所有的阻塞</li>
+</ol>
+<pre><code class="language-java">//java.util.concurrent.FutureTask   
+public void run() {
+        if (state != NEW ||
+            !UNSAFE.compareAndSwapObject(this, runnerOffset,
+                                         null, Thread.currentThread()))
+            return;
+        try {
+            Callable&lt;V&gt; c = callable;
+            if (c != null &amp;&amp; state == NEW) {
+                V result;
+                boolean ran;
+                try {
+                    result = c.call();
+                    ran = true;
+                } catch (Throwable ex) {
+                    result = null;
+                    ran = false;
+                    setException(ex);
+                }
+                if (ran)
+                    set(result);
+            }
+        } finally {
+            // runner must be non-null until state is settled to
+            // prevent concurrent calls to run()
+            runner = null;
+            // state must be re-read after nulling runner to prevent
+            // leaked interrupts
+            int s = state;
+            if (s &gt;= INTERRUPTING)
+                handlePossibleCancellationInterrupt(s);
+        }
+    }
+
+
+ protected void set(V v) {
+        if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
+            outcome = v;
+            UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state
+            finishCompletion();
+        }
+ }
+
+    /**
+     * Removes and signals all waiting threads, invokes done(), and
+     * nulls out callable.
+     */
+    private void finishCompletion() {
+        // assert state &gt; COMPLETING;
+        for (WaitNode q; (q = waiters) != null;) {
+            if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) {
+                for (;;) {
+                    Thread t = q.thread;
+                    if (t != null) {
+                        q.thread = null;
+                        LockSupport.unpark(t);
+                    }
+                    WaitNode next = q.next;
+                    if (next == null)
+                        break;
+                    q.next = null; // unlink to help gc
+                    q = next;
+                }
+                break;
+            }
+        }
+
+        done();
+
+        callable = null;        // to reduce footprint
+    }
+</code></pre>
+<h2 id="2-异步处理">2. 异步处理</h2>
+<p>FutureTask是一种进程等待另一个进程执行结束(同步), 但有时候我们需要的是异步操作，又该如何设计呢？通过注册+回调机制来实现。</p>
+<figure data-type="image" tabindex="5"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/FutureAsync.svg" alt="FutureAsync" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+
+        FutureAsync&lt;Integer&gt; future = new FutureAsync&lt;&gt;();
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            try {
+                Thread.sleep(1000);
+                future.fireSuccess(1);
+            } catch (InterruptedException e) {
+               future.fireFailure();
+            }
+
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            future.addListener(new FutureCallback() {
+                   @Override
+                   public void onSuccess(Object value) {
+                       System.out.println(String.valueOf(value));
+                   }
+
+                   @Override
+                   public void onFailure() {
+                       System.out.println(&quot;error&quot;);
+                   }
+            });
+
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+    static class FutureAsync&lt;T&gt;{
+       List&lt;FutureCallback&gt; callbacks = new ArrayList&lt;&gt;();
+
+       void addListener(FutureCallback callback){
+           callbacks.add(callback);
+       }
+
+       void fireSuccess(T value){
+           callbacks.stream().forEach((callback)-&gt;{callback.onSuccess(value);});
+       }
+        void fireFailure(){
+            callbacks.stream().forEach((callback)-&gt;{callback.onFailure();});
+        }
+    }
+
+    interface FutureCallback&lt;T&gt;{
+        void  onSuccess(T value);
+        void onFailure();
+    }
+}
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Kafka Metrics机制]]></title>
+        <id>https://loser-wang.github.io/post/kafka-metrics-ji-zhi/</id>
+        <link href="https://loser-wang.github.io/post/kafka-metrics-ji-zhi/">
+        </link>
+        <updated>2022-08-09T14:39:24.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="kafka-metrics机制">Kafka Metrics机制</h1>
+<blockquote>
+<p>Kafka uses <strong>Yammer Metrics</strong> for metrics reporting in the server. The Java clients use <strong>Kafka Metrics</strong>, a built-in metrics registry that minimizes transitive dependencies pulled into client applications. Both expose metrics via <strong>JMX</strong> and can be configured to report stats using pluggable <strong>stats reporters</strong> to hook up to your monitoring system.</p>
+<p>—— https://kafka.apache.org/documentation/#monitoring</p>
+</blockquote>
+<h2 id="1-metrics收集原理">1. Metrics收集原理</h2>
+<p><strong>Metrics</strong>类用来管理kafka运行产生的各种埋点数据，内部管理两个关键类：<strong>Metric</strong>和<strong>Sensor.</strong></p>
+<h3 id="11-metric">1.1 Metric</h3>
+<p>程序运行时会产生各种数据，Metric封装了获取这些数据的细节，提供给外界使用(Facade Pattern)。每一个Metric代表一种类型的数据，一系列Metic组成所有维度的统计数据，通过Measurable方法获取具体的数据。如下图所示：</p>
+<figure data-type="image" tabindex="1"><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8e017e4f6a0547fea58d1985bbccccb9~tplv-k3u1fbpfcp-watermark.image?" alt="Metric.jpeg" loading="lazy"></figure>
+<p align=center>图1 Metric收集原理</p>
+<ol>
+<li>程序运行的过程中不断产生各种数据，这些数据可以是当前的某个状态，比如访问次数总和，也可以是历史记录，比如每分钟的统计次数。这些指标数据可以是内存中的一个变量，也可以保存到数据库中。</li>
+<li>需要统计的指标为一个Metric，用来供外界查看。</li>
+<li>我们需要建立一个从Metric到数据的映射关系，这就通过Measurable来建立。</li>
+</ol>
+<p>比如：</p>
+<pre><code class="language-java">// 数据
+int count = 0;
+
+// metrics “api”
+addMetric(metricName(&quot;count&quot;, &quot;kafka-metrics-count&quot;, &quot;total number of registered metrics&quot;),
+          //metrics到数据的映射方式
+      new Measurable() {
+               @Override
+           public double measure(MetricConfig config, long now) {
+                 return count;
+           }
+      });
+</code></pre>
+<pre><code class="language-java">Map&lt;Long, Integer&gt; counts1 = new HashMap&lt;Long, Integer&gt;();
+Map&lt;Long, Integer&gt; counts2 = new HashMap&lt;Long, Integer&gt;();
+addMetric(metricName(&quot;count&quot;, &quot;kafka-metrics-count&quot;, &quot;total number of registered metrics&quot;),
+    new Measurable() {
+                @Override
+         public double measure(MetricConfig config, long now) {
+               return count1.get(now) + count2.get(now);
+         }
+    });
+</code></pre>
+<h3 id="12-sensor">1.2 Sensor</h3>
+<blockquote>
+<p><em>A sensor applies a continuous sequence of numerical values to a set of associated metrics. For example a sensor on message size would record a sequence of message sizes using the {<strong>@link</strong> #record(double)} api and would maintain a set of metrics about request sizes such as the average or max.</em></p>
+</blockquote>
+<p><em>我们可以通过 生成数据 +</em> Metrics+Measurable 来统计任何维度的数据。Sensor其实就是一种特殊实现，帮我们实现了这样一种常见场景：采集数据，然后将之前采集的所有数据映射成各种<strong>聚合的结果</strong>，再通过Metrics来提供给外界。如下图所示：</p>
+<figure data-type="image" tabindex="2"><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/aa3701852c8d4555b8f6f0c7085e7552~tplv-k3u1fbpfcp-watermark.image?" alt="Sensor.jpeg" loading="lazy"></figure>
+<p align=center>图2 Sensor采集原理</p>
+<ol>
+<li>首先在Sensor中注册Metric和对应的Stat。</li>
+<li>在程序运行的过程中，通过 Sensor.record 采集数据。</li>
+<li>Sensor会将采集的数据分发给所有的Stat，同时检查其对应的所有的Metric是否超过配置中的限额。</li>
+<li>Stat对数据进行集成操作（如count、avg、max）</li>
+<li>Metric通过调用Stat的measure方法获取数据</li>
+</ol>
+<p>其中的关键就是：SampledStat，可以看到继承了Measurable。即既保存数据，又提供数据到Metic的映射关系。</p>
+<figure data-type="image" tabindex="3"><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2b13e4e9a1a64f1bae5d5ba65a2e0f70~tplv-k3u1fbpfcp-zoom-1.image" alt="SampledStat" loading="lazy"></figure>
+<h3 id="13-state">1.3 State</h3>
+<p>目前已有的MeasurableState有：</p>
+<ul>
+<li>Rate: 采样频率（内部为Count）</li>
+<li>Total: 统计总数，无时间窗口，从启动开始一直累加。</li>
+<li>Value: 当前值</li>
+<li>SimpleStat:对时间窗口内的数据进行采集聚合。创建Metrics时，可以根据MetricConfig设置<strong>窗口数</strong>、<strong>窗口单位时间</strong>、<strong>窗口采集上限</strong>。默认采用2个窗口，窗口的时间单位为30s，共一分钟，采集上限为Long.MAX_VALUE。</li>
+<li>Max</li>
+<li>Avg</li>
+<li>Count</li>
+<li>Min</li>
+</ul>
+<p>重点看一下Count和Rate:</p>
+<h4 id="count">Count</h4>
+<figure data-type="image" tabindex="4"><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3768f8fd14c142438a9d05536fd0b9b5~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"></figure>
+<p>Count每次采集信息时，如果发现当前窗口已经满了（超时或者达到值上限），会把第一个窗口1给清空，作为新窗口。</p>
+<p><strong>窗口切换的过程中可能会导致数据还未上报就已经丢失</strong> .</p>
+<h4 id="rate">Rate</h4>
+<p>Rate内部也通过Count保存数据，在返回时 value/(当前时间-窗口最早时间).<strong>窗口切换的过程中也可能会导致数据还未上报就已经丢失</strong>。但是如果分布均匀，时间同样也小了，Rate值可以降低影响。</p>
+<h3 id="14-总体结构">1.4 总体结构</h3>
+<p>通过上面的内容，已经大致了解采集的具体结构。再来看一下Metrics的总体结构：</p>
+<figure data-type="image" tabindex="5"><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3adb285929534ca6a66e2f1e59ea759b~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"></figure>
+<p align=center>总体结构</p>
+<h2 id="2-外界获取metrics数据">2. 外界获取Metrics数据</h2>
+<p>可以通过多种方式将数据暴露给外部使用。如JMX、yamml等。</p>
+<h3 id="21-jmx">2.1 JMX</h3>
+<p><a href="https://www.baeldung.com/java-management-extensions">Basic Introduction to JMX</a></p>
+<p>JmxReporter实现了MetricsReporter方法，将Metrics提供给JMX。MetricsReporter定义了一些钩子函数，会在注册Repoter、更新Metric、移除Metric时触发。</p>
+<p>具体的原理也很简单，就是将Metric的值保存在<strong>MBean中，<strong>通过</strong>JMX Agent</strong>暴露出去:</p>
+<pre><code class="language-java">public class JmxReporter implements MetricsReporter {
+  private final Map&lt;String, KafkaMbean&gt; mbeans = new HashMap&lt;String, KafkaMbean&gt;();
+  
+  //创建时将metric封装进KafkaMbean，然后注册KafkaMbean到JMX Agent（更新、移除时同理）
+  @Override
+  public void init(List&lt;KafkaMetric&gt; metrics) {
+        synchronized (LOCK) {
+            for (KafkaMetric metric : metrics)
+                addAttribute(metric);
+            for (KafkaMbean mbean : mbeans.values())
+                reregister(mbean);
+        }
+    }
+  
+  // 注册KafkaMbean到JMX Agent
+   private void reregister(KafkaMbean mbean) {
+        unregister(mbean);
+        try {
+            ManagementFactory.getPlatformMBeanServer().registerMBean(mbean, mbean.name());
+        } catch (JMException e) {
+            throw new KafkaException(&quot;Error registering mbean &quot; + mbean.name(), e);
+        }
+    }
+  
+}
+ 
+  
+</code></pre>
+<h2 id="4-采样数据丢失思考">4. 采样数据丢失思考</h2>
+<p>我在offset commit消息上报的时候，明明已经触发了故障，但是却出现如下结果：一分钟内，offet commit的频率(Rate)为0.2, 但是offet commit success出现的次数为0，offet commit fail出现的次数(Count)可能为12，8，9等各种值, 显然<br>
+Count有数据丢失了。</p>
+<p>Kafka Client Metric的大多数数据采集都是随机的，所以尽管可能会有少量数据丢失，但是不影响整体。但是像offet commit这种<strong>周期性采集</strong>的消息，可能就会出现很多问题，这里讨论一下。<br>
+为何Rate值相对更可靠，Count值不可靠？先说结论，<strong>采集和上报直接存在盲区</strong>。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d8bdaac3faa148e7b56c4aee23ff65d2~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"><br>
+由上图可以看到，由于采集和上报是异步的，且周期都是1分钟，所以会出现红色区域所示的盲区。如果极端情况下，采集刚切换窗口后立即开始上报，会有1/2的数据丢失！<br>
+所以，得出如下结论:</p>
+<ol>
+<li>Kafka Metric收集的值仅可作为出现错误或者异常的依据，不可用来当作确切的值。</li>
+<li>如果要采集的周期性数据出现的频率远大于一分钟的时候，上报频率尽量不要是60s的倍数。否则可能运气不好，一直无法收集到采集数据。比如offet commit的频率一般是flink checkpoint时间，这时候尽量不要设置60的倍数。</li>
+<li>正如我们前面说的，<strong><em>生成数据 +</em>  Metrics+Measurable 来统计任何维度的数据</strong>。如果非要收集确切值，我们也可以通过Measurable方法使采集和上报同步，即每次在上报的同时才清空数据。但是这样要注意，<strong>如果存在多个Reporter,可能收集直接会彼此干扰。</strong></li>
+</ol>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[kafka数据同步4:基于Flink 2PC的Kafka2Hive]]></title>
+        <id>https://loser-wang.github.io/post/ji-yu-flink-2pc-de-kafka2hive/</id>
+        <link href="https://loser-wang.github.io/post/ji-yu-flink-2pc-de-kafka2hive/">
+        </link>
+        <updated>2022-07-26T14:59:20.000Z</updated>
+        <content type="html"><![CDATA[<p>Kafka2Hive是基于Flink实现的kafka to Hive数据同步器。其语意为 exactly-once，保证kafka中的每个消息都恰好只同步一份。</p>
+<p>本篇通过Kafka2Hive这个案例，来看一下如何实现Kafka exactly-once 语义的数据同步。<br>
+<a name="zb4x2"></a></p>
+<h2 id="1-exactly-once">1. exactly-once</h2>
+<p>首先回忆一下：《Kafka数据同步1: Flink容错机制 》</p>
+<blockquote>
+<p>When we say “exactly-once semantics”, what we mean is that each incoming event affects the final results exactly once. Even in case of a machine or software failure, there’s no duplicate data and no data that goes unprocessed.</p>
+</blockquote>
+<p>Flink对内部的状态通过checkpionting机制来保证 exactly-once：如果机器或软件发生故障并在重新启动时，Flink 应用程序会从最近成功完成的checkpoint恢复处理；Flink 恢复应用程序state并从ckeckpoint回滚到输入流中的相应开始位置，然后再次开始处理，而在此checkpoint之后事件生成的state不可见。这意味着 Flink 计算结果时就好像失败从未发生过一样。</p>
+<p>但是 Flink 应用程序与各种data sinks一起运行，为了提供端到端的Exactly-once语义，仅仅保证Flink应用程序的状态符合Exactly-once语义是不够的，这些语义也适用于Flink写入的外部系统。<strong>这些外部系统必须提供一种提交或回滚写入的方法与 Flink 的检查点相协调</strong>。</p>
+<p>在分布式系统中协调提交和回滚的一种常见方法是两阶段提交协议。Flink 通过 TwoPhaseCommitSinkFunction 利用两阶段提交协议来提供端到端的精确一次语义。</p>
+<p>设计时需要考虑的问题</p>
+<ul>
+<li><strong>Q1</strong> Pre-commit阶段：<strong>如果在pre-commit阶段发生故障</strong>，任务重启后，我们将从最近的检查点重新初始化应用程序，Flink state会恢复自动到上一次检查点时的状态。但是如何rollback外部数据库的pre-commit事务， 并且何时rollback？</li>
+<li><strong>Q2</strong> commit阶段：<strong>如果在pre-commit和commit之间发生故障</strong>，任务重启后如何保证最终提交成功？</li>
+<li><strong>Q3</strong> Coordinator故障：<strong>如果整个Flink集群挂掉或者Coordinator（Job Manager)故障</strong>，在新的集群中<strong>重启Job</strong>，state丢失，无法使用checkpoint来恢复，这时候如何进行恢复？</li>
+</ul>
+<p><a name="SXFQ9"></a></p>
+<h2 id="2-数据格式">2. 数据格式</h2>
+<p><a name="DERcM"></a></p>
+<h3 id="21-record同步到hive">2.1 record同步到hive</h3>
+<p>在配置文件中指定好 kafka topicName 到 hive TableName的映射，然后Kafka2Hive会实现将 Partation Message中的数据 <strong>shuffle</strong> 到相应时间的Bucket中。</p>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/kakfa2hive%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=Xkanb&amp;originHeight=201&amp;originWidth=1169&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br>
+<a name="HhkuZ"></a></p>
+<h3 id="22-offset保存到hdfs">2.2 offset保存到hdfs</h3>
+<p>为了防止Coordinator故障，每次checkpointing快照不仅持久化数据，还会持久化offset到hive。</p>
+<p>offset持久化保存到hdsf，格式如下：</p>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%E6%96%87%E4%BB%B6.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=eWXm4&amp;originHeight=590&amp;originWidth=1091&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<ul>
+<li>kafka_partition_offsets为根目录，内部有一系列时间目录，文件名为Job的<strong>启动时间</strong>。</li>
+<li>时间目录内部有一系列检查点目录，文件名代表<strong>检查点</strong>的版本</li>
+<li>检查点目录下面有一系列文件，这些文件就是不同任务的<strong>快照</strong>。文件中保存每个分区消费的offset。(<strong>第一行还会保存对应的hive文件地址，用于后续宕机重启恢复, 解决Q3</strong>）</li>
+</ul>
+<p><a name="qQkMW"></a></p>
+<h3 id="23-文件状态">2.3 文件状态</h3>
+<p>不管是record、offset，其写入的文件都分三种状态</p>
+<ul>
+<li><strong><em>.in-progress</em></strong>: 表示正在写入的文件，相当于事务的执行阶段。</li>
+<li><em><strong>.pending</strong></em>: 预提交状态。</li>
+<li><strong><em>.final</em></strong>: 已提交状态。只有.final才表示数据的最终状态(一致性状态），可以被读取。</li>
+</ul>
+<p><a name="naQxt"></a></p>
+<h3 id="24-checkpoint-state格式">2.4 checkpoint State格式</h3>
+<p><img src="https://cdn.nlark.com/yuque/0/2022/svg/1801723/1658153507540-9350d827-4ac3-410c-9309-4e3f86e37048.svg#clientId=u1b743991-f38b-4&amp;crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;from=ui&amp;id=u24ffa78d&amp;name=processor.svg&amp;originHeight=770&amp;originWidth=1462&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;size=22202&amp;status=done&amp;style=none&amp;taskId=u34e83138-83f0-4383-904e-f363ac26469&amp;title=" alt="processor.svg" loading="lazy"><br />每次CheckPoint保存的state快照不仅包括本次checkpointing的**_ .in-progress <em><strong>文件路径 和</strong></em> .pending <em><strong>文件路径。还保存了本次checkpoint之前的所有</strong>历史**checkpoint的 **</em>.pending_** 文件路径。<br />任务重启后，checkpoint的state中不包含之后的 **_.in-progress <em>**文件路径 和 **</em>.pending _**文件路径, 默默丢弃，实现rollback, 解决Q1。然后定期清理垃圾文件即可。<br />历史checkpoint的 .pending 文件路径是为了重启后保证pre-commit最终一定执行成功，解决Q2。<br /><strong>如果Flink集群运行正常，仅仅进行任务重启，Q1和Q2都可以通过Flink checkpoint机制来解决。但是Q3由于系统重启或者换机器集群处理，由于checkpoint和state丢失，无法通过checkpoint机制来解决，而且发生的阶段比较随机，包含了前两个时刻，需要格外讨论。</strong></p>
+<p><a name="WDKCf"></a></p>
+<h2 id="3-流程">3. 流程</h2>
+<p>过一下流程，看kafka2Hive如何运行，如何保证一致性。其中consumer group的内容参考：《Kafka数据同步2: FlinkKafkaConsumerBase 》</p>
+<p><a name="f0c0fc1a"></a></p>
+<h3 id="a-某一时刻">a. 某一时刻</h3>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/%E6%9F%90%E4%B8%80%E6%97%B6%E5%88%BB%E7%9A%84%E7%8A%B6%E6%80%81.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=oJBOd&amp;originHeight=412&amp;originWidth=868&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p>从input流中读取了一个消息X, 包含partition和offset信息。</p>
+<p><a name="b2a9ba66"></a></p>
+<h3 id="b-数据转化">b. 数据转化</h3>
+<figure data-type="image" tabindex="3"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E5%A4%84%E7%90%86.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=xWnQ6&amp;originHeight=623&amp;originWidth=989&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p>读取消息X后，processor算子会先更新对应partition的offset，然后将数据写入Hive对应的临时文件,即_tmp/<em><span class='katex-error' title='ParseError: KaTeX parse error: Expected group after &#039;_&#039; at position 18: …ucketPath}_tast_̲'>{bucketPath}_tast_</span></em>{tastIndex}_${task}</p>
+<p><a name="26303872"></a></p>
+<h3 id="c-checkpoint-barrier">c. checkpoint barrier</h3>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/checkpoint%20barrier%20.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=ux5bM&amp;originHeight=412&amp;originWidth=691&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br />当读到 checkpoint barrier 边界时，会触发<strong>checkpointing</strong>操作产生系统快照，供后续出现故障重启时使用。两个checkpoint barrier之间的执行操作就像一段分布式事务，采用两阶段提交协议。</p>
+<p><a name="cf349ed8"></a></p>
+<h3 id="d-pre-commit-snapshotstate">d. pre-commit: snapshotState</h3>
+<p>首先第一阶段，所有算子都保存快照到state backend。只有所有的算子的snapshotState方法都执行成功，checkpoint算成功，才能获取对应的state。</p>
+<figure data-type="image" tabindex="4"><img src="https://flink.apache.org/img/blog/eo-post-graphic-4.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=F9qmR&amp;originHeight=1212&amp;originWidth=2154&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="338880c2"></a></p>
+<h4 id="data-source">Data Source</h4>
+<p><strong>kafaConsumer将当前的offset保存到state。</strong></p>
+<p><a name="8c09b8b5"></a></p>
+<h4 id="data-sink">Data Sink</h4>
+<p>由两部分组成：</p>
+<ul>
+<li>hive中的 in-progress 文件停止写入，然后转化为pending文件(pending文件代表 <strong>pre-commit)</strong> ，<strong>并且将文件路径snapshot到state</strong>。(不止保存checkpoint的信息，还保存所有<strong>历史checkpoint的信息</strong>）</li>
+<li>将内存中的offset信息持久到hdfs</li>
+</ul>
+<figure data-type="image" tabindex="5"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/record%20pending.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=sz5VU&amp;originHeight=210&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="6"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%20in-progress.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=C0xZk&amp;originHeight=330&amp;originWidth=1022&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="sf66G"></a></p>
+<h4 id="如果在此阶段发生故障">如果在此阶段发生故障</h4>
+<ol>
+<li>
+<p>hive文件转化为 <strong><em>.pending</em></strong> 状态，在Hdfs offset处于 **_.in-progress _**状态或者之前状态时，系统恰好故障。重启任务或者job，相当于没发生一样，没有副作用。</p>
+</li>
+<li>
+<p>hive record转化为**_ .pending <em>**状态，在Hdfs offset处于 **</em>.pending _<strong>状态时，故障导致</strong>任务重启**</p>
+<ul>
+<li>hive得益于checkpointing机制，不感知上一次checkpoint之后的.pending文件，相当于实现了rollback。</li>
+<li>但是Hdfs offset rollback操作目前好像没有相应的保障，没有rollback, 后续需要做额外保障。(即第三种可能)</li>
+</ul>
+</li>
+<li>
+<p>hive record转化为 <strong><em>.pending</em></strong> 状态，在Hdfs offset处于**_ .pending _<strong>状态时，故障导致</strong>job重启**， 处理方式为：</p>
+<ul>
+<li>先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态</li>
+<li>再重启Flink进行2-pc 流处理</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>todo: 补一张图</p>
+</blockquote>
+<blockquote>
+<p>当Job重启时，发现Hdfs offset处于 .pending 状态，其实对应3种可能：</p>
+<ul>
+<li><strong>pre-commit阶段还未来得及告诉JobManager就宕机</strong>，说明pre-commit执行失败，<strong>重启后consumer group 默认是从上一次checkpiont开始消费</strong>，需要对hdfs offset进行rollback,  即默默丢弃offset文件, 然后开始消费。</li>
+<li><strong>通知了JobManeger，但是commit阶段才开始, 还未完成hive commit就宕机了</strong>, 重启后由于dataSouce已经提交成功了，默认从本次checkpoint开始消费 ，需要确保commit，将hive文件和offset变为.final</li>
+<li><strong>commit阶段刚把hive commit, 但是offset未commit</strong>, 其实已经视为成功，将offset设置为 .final 即可。</li>
+</ul>
+<p>但是，JobManager也刚刚重启，无法判断当前处于什么阶段。<strong>尤其前两种情况，都有 .pending hive文件 和 .pending offset文件，但是重启后开始消费的offset不同。</strong></p>
+<p>采取的保证措施是也不管处于什么阶段了，直接将 hdfs offset和hive文件全部变为 .final, 然后从后面启动Flink作业，初始offset为hdfs offset + 1, 而非接着上次。</p>
+</blockquote>
+<p><a name="418d23c8"></a></p>
+<h3 id="e-commit-notifycheckpointcomplete">e. commit: notifyCheckpointComplete</h3>
+<p>如果所有算子的snapshot方法完成, 说明各算子都已经&quot;pre-commit&quot;。各算子调用notifyCheckpointComplete进行后续操作：</p>
+<figure data-type="image" tabindex="7"><img src="https://flink.apache.org/img/blog/eo-post-graphic-5.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=Fa7vq&amp;originHeight=1208&amp;originWidth=2156&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="338880c2-1"></a></p>
+<h4 id="data-source-2">Data Source</h4>
+<p>kafka consumer会提交offset，进入下一轮消费。</p>
+<p><a name="8c09b8b5-1"></a></p>
+<h4 id="data-sink-2">Data Sink</h4>
+<p>将hive中的消息从pending文件转化为final文件。消息之后才能被消费。</p>
+<p>将hdfs中的消息从pending文件转化为final。</p>
+<figure data-type="image" tabindex="8"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/record%20pending%20to%20final.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=gyBPN&amp;originHeight=210&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%20final.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=rzh3k&amp;originHeight=197&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br>
+<a name="IaWAc"></a></p>
+<h4 id="如果在此阶段发生故障-2">如果在此阶段发生故障</h4>
+<ol>
+<li>hive record转化为**_ .pending <em>**状态或者之前状态，在Hdfs offset处于 **</em>.pending _<strong>状态或者之前状态时，故障导致</strong>任务重启**，通过initializeState方法重新commit。</li>
+<li>hive record转化为**_ .pending_** 状态，在Hdfs offset处于 <strong>_ .pending_</strong> 状态或者之前状态时，故障导致<strong>job重启</strong>，同前面pre-commit阶段讨论的一样， 先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态，再重启2-pc。</li>
+<li>hive record转化为 <strong>_.final _<strong>状态，在Hdfs offset处于 .</strong>_pending _<strong>状态或者之前状态时，故障导致</strong>任务重启</strong>，视为已经成功提交。</li>
+<li>hive record转化为 .<strong><em>final</em></strong> 状态，在Hdfs offset处于 <strong>_.pending _<strong>状态或者之前状态时，故障导致</strong>job重启</strong>，同前面pre-commit阶段讨论的一样， 先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态，再重启2-pc。</li>
+<li>hive record转化为 **_.final <em>**状态，在Hdfs offset处于 **</em>.final _**状态或者之前状态时，故障导致任务重启或者job重启，无影响。</li>
+</ol>
+<p><a name="caea9fac"></a></p>
+<h3 id="f-initializestate重启">f. initializeState重启</h3>
+<p>如果任务出错重启, 重启时会调用CheckpointedFunction的initializeState方法：</p>
+<ul>
+<li>从状态中恢复事务信息</li>
+<li>对pre-commit事务的提交（<strong>问题2</strong>）</li>
+<li>对失败的事务进行rollback。（<strong>问题1</strong>，直接无视本次checkpoint之后的操作)</li>
+</ul>
+<p><a name="338880c2-2"></a></p>
+<h4 id="data-source-3">Data Source</h4>
+<p>pre-commit信息就是上一次checkpoint时保存在state中的offset。从该offset之后开始消费，就完成了事务的提交。</p>
+<p><a name="8c09b8b5-2"></a></p>
+<h4 id="data-sink-3">Data Sink</h4>
+<p>pre-commit信息就是路径保存在state中的<strong>历史checkpont的所有_ .pending _文件</strong>，保证 <strong>.pending <strong>文件成功转换为</strong>_ .final_</strong> 状态。<br />hive rollback操作就是不感知将当前checkpoint之后生成的 **_.in-progress _<strong>和 _</strong>.pending **_文件，使其成为垃圾文件，定期清理。</p>
+<p><a name="1ff9ca29"></a></p>
+<h3 id="g-job重启极少情况">g. job重启（极少情况）</h3>
+<p>类似2PC成功执行的前提是Coordinator正常运行，Flink的2PC执行的前提也是Job Master正常运行。但是如果整个Flink应用突然宕机或者出现其他异常，我们被迫在新的Flink应用重启job。此时state消失了，将数据恢复到一致呢？<br />启动时，从保存在hdfs中的最近成功checkpoint的offset信息来恢复（即所有checkpoint目录下所有的后缀都不是 .in-progress)</p>
+<ul>
+<li>如果第一次启动或者没有checkpoint成功过，binlog从最旧消费（startFromOffset = -1） ，其他从最新消费（startFromOffset = 1）</li>
+<li>如果同步成功过，<strong>将 .pending状态的offset对应的hive文件变为 .final</strong>，然后从上次作业最后成功的 checkpoint 手动恢复offset和partition。</li>
+</ul>
+<p><a name="2a302fa5"></a></p>
+<h2 id="参考文章">参考文章</h2>
+<p><a href="https://vonng.gitbooks.io/ddia-cn/content/ch9.html">设计数据密集型应用DDIA - 中文翻译</a></p>
+<p><a href="https://tjcug.github.io/blog/2018/05/29/Apache-Flink-%E5%AE%98%E6%96%B9%E6%96%87%E6%A1%A3%E7%BF%BB%E8%AF%91%E4%B9%8B-%E5%AE%B9%E9%94%99%E6%9C%BA%E5%88%B6/">Apache Flink 官方文档翻译之 容错机制</a></p>
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-1.15/zh/docs/learn-flink/fault_tolerance/#%E7%8A%B6%E6%80%81%E5%BF%AB%E7%85%A7">Apache Flink官方文档之通过状态快照实现容错处理</a></p>
+<p>[Apache Flink官方文档之An Overview of End-to-End Exactly-Once Processing in Apache Flink (with Apache Kafka, too!)](</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Kafka数据同步3: Kafka2Doris]]></title>
+        <id>https://loser-wang.github.io/post/kafka-shu-ju-tong-bu-3-kafka2doris/</id>
+        <link href="https://loser-wang.github.io/post/kafka-shu-ju-tong-bu-3-kafka2doris/">
+        </link>
+        <updated>2022-07-26T14:57:40.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="1-doris-label">1. Doris Label</h2>
+<p>Copy From: <a href="https://github.com/apache/doris/discussions/6675">doris的label的理解</a></p>
+<p><strong>label 是用于表示一次导入操作的标识</strong>。在doris中，任何导入方式都会有一个label。这个label可以是用户指定的，也可能由系统自动生成。<br>
+label的目的是帮助实现 <em>“At-Most”</em> 的导入语义。即同一个label，在一个database内，只能被成功导入一次。如果一个label已经成功导入，如果再次使用这个label进行导入，会报错“Label already used”。而如果导入失败，则可以使用相同的label继续重试导入。</p>
+<p><strong>通过“At-Most”的导入语义，如果配合上游系统“At-Least”数据生产语义，则可以实现端到端的“Exactly-once”语义，保证数据不丢不重。</strong></p>
+<p>无法查看一个表里有哪些label，因为label对应的是导入任务，而不是表。</p>
+<h2 id="2-设计思路">2. 设计思路</h2>
+<p>Kafka2Doris没有采用checkpoint机制来保证一致性，而是通过 Doris Label + offset来保证exact-once语义：</p>
+<ul>
+<li>
+<p>Flink先保存消费的Kafka消息到Batch，然后串行发送Batch数据到Doris。即每次发送一批数据前，上一批数据已经发送成功。</p>
+</li>
+<li>
+<p>每次提交数据到Doris前，会保存如下信息到Zookeeper：Kafka分区offset范围[startOffset, EndOffset]和Doris Label。</p>
+</li>
+<li>
+<p>每次重启job时，从Zookeeper中获取每个分区的上一次消费的分区范围和Label，然后查询label是否导入成功：</p>
+<ul>
+<li>如果导入成功，说明上一次消费成功，offset = endOffset + 1</li>
+<li>如果导入失败，说明上一次消费失败, offset = startOffset。</li>
+</ul>
+</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2doris/Kafka2doris%E8%AE%BE%E8%AE%A1%E6%80%9D%E8%B7%AF.png" alt="Kafka2Doris设计思路" loading="lazy"></figure>
+<h2 id="3-详细流程">3. 详细流程</h2>
+<ul>
+<li>
+<p>Job重启时先从Zookeeper中获取offset</p>
+</li>
+<li>
+<p>启动Flink作业，DataSource从offset开始消费。</p>
+</li>
+<li>
+<p>Sink会调用DorisWriter向PipelineManager写入消息(速度取决于DorisParser线程处理速度，漏桶式设计）</p>
+</li>
+<li>
+<p>DorisParser采用parallelism个线程获取与解析Sink中的消息，然后放到Batch中批量发送。即当前Sink已经消费的消息 = Doris中已同步的消息 + Batch中的消息 + parallelism个Parser线程正在解析的消息</p>
+</li>
+<li>
+<p>DorisSender以Batch为单位发送数据，先提交offset, 再发送数据（最多重试sendMaxRetry次）<br>
+<img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2doris/kafka2Doris.svg" alt="详细设计" loading="lazy"></p>
+</li>
+</ul>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[kafka测试方法]]></title>
+        <id>https://loser-wang.github.io/post/kafka-ce-shi-fang-fa/</id>
+        <link href="https://loser-wang.github.io/post/kafka-ce-shi-fang-fa/">
+        </link>
+        <updated>2022-07-06T16:25:42.000Z</updated>
+        <content type="html"><![CDATA[<p>kafka的测试主要从功能和性能两方面出发：</p>
+<ul>
+<li>测试系统在高负载下是否稳定，即性能测试。</li>
+<li>测试系统是否能够保证生产的消息一定被消费，即正确性测试。</li>
+</ul>
+<h2 id="1-性能测试">1. 性能测试</h2>
+<h3 id="11-性能测试定义">1.1 性能测试定义</h3>
+<p>性能测试是指<strong>通过模拟生产运行的业务压力或用户使用场景来测试系统的性能是否满足生产性能的要求</strong>。从广义来看，性能测试则是压力测试、负载测试、强度测试、容量测试、大数据量测试、基准测试等和性能相关的测试的统称。</p>
+<p><strong>压力测试</strong>是指通过逐步增加系统负载，测试系统性能的变化，并最终确定在什么负载条件下系统性能处于失效状态，通过确定一个系统的瓶颈或者不能接受的性能点，来获得系统能提供的最大服务级别的。压力测试的目的是</p>
+<ul>
+<li>找出因资源不足或资源争用而导致的错误。</li>
+<li>确定测试对象能够处理的最大工作量。</li>
+<li>可以让测试工程师观察系统在出现故障时的反应。系统是不是保存了它出现故障时的状态？是不是它突然间崩溃掉了？它是否只是挂在那儿什么也不做了？在重启之后，它是否有能力恢复到前一个正常运行的状态？</li>
+</ul>
+<p><strong>基准测试</strong>是指在一定的软件、硬件及网络环境下，模拟一定数量的虚拟用户运行一种或多种业务，<strong>将测试结果作为基线数据</strong>，在系统调优或系统评测的过程中，通过运行相同的业务场景比较测试结果，确定调优的结果是否达到预期效果，或者为系统的选择提供决策数据。主要用于性能调优。在经过测试获得了基准测试数据后，进行环境调整（包括硬件配置、网络、操作系统、应用服务器、数据库等），再将测试结果与基准数据进行对比，判断调整是否达到最佳状态。</p>
+<h3 id="12-性能测试工具">1.2 性能测试工具</h3>
+<p>Copy From 《极客时间-Kafka核心技术与实战-31 常见工具脚本大汇总》 + 《 <a href="https://www.cnblogs.com/lkxed/p/kafka-perf-test-tools.html">Kafka 性能测试脚本详解</a>》+ 《<a href="https://taliove.com/kafka-perf-test">Kafka性能测试</a>》</p>
+<p>Kafka有自带的性能测试工具，可以对生产者、消费者的性能进行测试。可以参考《<a href="https://cloud.tencent.com/developer/article/1587057">Kafka压力测试(自带测试脚本)(单机版)</a>》的方法进行压力测试分析。当我们对Kafka进行改动时，也可以按照LinkedIn提供的《<a href="https://nereuschen.github.io/2015/03/04/%E8%A7%A3%E8%AF%BBkafka%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8A%A5%E5%91%8A/">Kafka benchmark</a>》脚本来运行一下，看看运行结果是否表现更好。</p>
+<h4 id="121-测试生产者性能">1.2.1 测试生产者性能</h4>
+<p>先说测试生产者的脚本：<strong>kafka-producer-perf-test</strong>。它的参数有不少, 参数详解如下：</p>
+<table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-h, --help</td>
+<td>显示使用帮助并退出</td>
+</tr>
+<tr>
+<td><strong>--topic</strong></td>
+<td><strong>指定生产的消息发往的 topic</strong></td>
+</tr>
+<tr>
+<td><strong>--num-records</strong></td>
+<td><strong>指定生产的消息总数</strong></td>
+</tr>
+<tr>
+<td>--payload-delimeter</td>
+<td>如果通过 --payload-file 指定了从文件中获取消息内容，那么这个参数的意义是指定文件的消息分隔符，默认值为 \n，即文件的每一行视为一条消息；如果未指定 --payload-file 则此参数不生效</td>
+</tr>
+<tr>
+<td><strong>--throughput</strong></td>
+<td><strong>限制每秒发送的最大的消息数，设为 -1 表示不限制</strong></td>
+</tr>
+<tr>
+<td><strong>--producer-props</strong></td>
+<td><strong>直接指定 Producer 配置，格式为 NAME=VALUE，例如 bootstrap.server=127.0.0.1:9092，通过此种方式指定的配置优先级高于 --producer.config</strong></td>
+</tr>
+<tr>
+<td>--producer-config</td>
+<td>指定 Producer 的配置文件，格式参照官方的 config/producer.properties</td>
+</tr>
+<tr>
+<td>--print-metrics</td>
+<td>在测试结束后打印更详尽的指标，默认为 false</td>
+</tr>
+<tr>
+<td>--transactional-id</td>
+<td>指定事务 ID，测试并发事务的性能时需要，只有在 --transaction-duration-ms &gt; 0 时生效，默认值为 performance-producer-default-transactional-id</td>
+</tr>
+<tr>
+<td>--transactional-duration-ms</td>
+<td>指定事务持续的最长时间，超过这段时间后就会调用 commitTransaction 来提交事务，只有指定了 &gt; 0 的值才会开启事务，默认值为 0</td>
+</tr>
+<tr>
+<td><strong>--record-size</strong></td>
+<td><strong>指定每条消息的大小，单位是字节，和 --payload-file 两个中必须指定一个，但不能同时指定</strong></td>
+</tr>
+<tr>
+<td>--payload-file</td>
+<td>指定消息的来源文件，只支持 UTF-8 编码的文本文件，文件的消息分隔符通过 --payload-delimeter 指定，和 --record-size 两个中必须指定一个，但不能同时指定</td>
+</tr>
+</tbody>
+</table>
+<p>示例如下：</p>
+<pre><code class="language-shell">$ bin/kafka-producer-perf-test.sh  \
+  --topic test-topic \ 
+  --num-records 10000000 \
+  --throughput -1 \
+  --record-size 1024 \
+  --producer-props bootstrap.servers=kafka-host:port acks=-1  linger.ms=2000  compression.type=lz4
+</code></pre>
+<p>上述命令向指定主题发送了1千万条消息，每条消息大小是1KB, <strong>并且ack=-1</strong>。该命令允许你在producer-props后面指定要设置的生产者参数，比如本例中的压缩算法、延时时间等。</p>
+<p>输出结果的格式如下：</p>
+<pre><code class="language-shell">2175479 records sent, 435095.8 records/sec (424.90 MB/sec), 131.1 ms avg latency, 681.0 ms max latency.
+4190124 records sent, 838024.8 records/sec (818.38 MB/sec), 4.4 ms avg latency, 73.0 ms max latency.
+10000000 records sent, 737463.126844 records/sec (720.18 MB/sec), 31.81 ms avg latency, 681.00 ms max latency, 4 ms 50th, 126 ms 95th, 604 ms 99th, 672 ms 99.9th.
+</code></pre>
+<p>它会打印出测试生产者的吞吐量(MB/s)、消息发送延时以及各种分位数下的延时。一般情况下，消息延时不是一个简单的数字，而是一组分布。或者说，<strong>我们应该关心延时的概率分布情况，仅仅知道一个平均值是没有意义的</strong>。这就是这里计算分位数的原因。通常我们关注到<strong>99th分位</strong>就可以了。比如在上面的输出中，99th值是604ms，这表明测试生产者生产的消息中，有99%消息的延时都在604ms以内。你完全可以把这个数据当作这个生产者对外承诺的SLA。</p>
+<h4 id="122-测试消费者性能">1.2.2 测试消费者性能</h4>
+<p>测试消费者也是类似的原理，只不过我们使用的是<strong>kafka-consumer-perf-test</strong>脚本，参数如下：</p>
+<table>
+<thead>
+<tr>
+<th><strong>参数名</strong></th>
+<th><strong>含义</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>--bootstrap-server</strong></td>
+<td><strong>指定 broker 地址，必选，除非用 --broker-list 代替（不建议）</strong></td>
+</tr>
+<tr>
+<td><strong>--topic</strong></td>
+<td><strong>指定消费的 topic，必选</strong></td>
+</tr>
+<tr>
+<td>--version</td>
+<td>输出 Kafka 版本</td>
+</tr>
+<tr>
+<td><strong>--consumer.config</strong></td>
+<td><strong>指定 Consumer 配置文件</strong></td>
+</tr>
+<tr>
+<td>--date-format</td>
+<td>指定用于格式化 *.time 的规则，默认为 yyyy-MM-dd HH:mm:ss:SSS</td>
+</tr>
+<tr>
+<td><strong>--fetch-size</strong></td>
+<td><strong>指定一次请求消费的大小，默认为 1048576 即 1 MB</strong></td>
+</tr>
+<tr>
+<td>--from-latest</td>
+<td>如果 Consumer 没有已经建立的 offset，则指定从 log 中最新的位点开始消费，而不是从最早的位点开始消费</td>
+</tr>
+<tr>
+<td>--group</td>
+<td>指定 ConsumerGroup ID，默认为 perf-consumer-40924</td>
+</tr>
+<tr>
+<td>--help</td>
+<td>显示使用帮助并退出</td>
+</tr>
+<tr>
+<td>--hide-header</td>
+<td>指定后不输出 header 信息</td>
+</tr>
+<tr>
+<td><strong>--messages</strong></td>
+<td><strong>指定消费的消息数量，必选</strong></td>
+</tr>
+<tr>
+<td>--num-fetch-threads</td>
+<td>指定 fetcher 线程的数量</td>
+</tr>
+<tr>
+<td>--print-metrics</td>
+<td>指定打印 metrics 信息</td>
+</tr>
+<tr>
+<td><strong>--reporting-interval</strong></td>
+<td><strong>指定打印进度信息的时间间隔，默认为 5000 即 5 秒</strong></td>
+</tr>
+<tr>
+<td><strong>--show-detailed-stats</strong></td>
+<td><strong>指定每隔一段时间（由 --reporting-interval 指定）输出显示详细的状态信息</strong></td>
+</tr>
+<tr>
+<td>--socket-buffer-size</td>
+<td>指定 TCP 的 RECV 大小，默认为 2097152 即 2 MB</td>
+</tr>
+<tr>
+<td><strong>--threads</strong></td>
+<td><strong>指定消费的线程数，默认为 10</strong></td>
+</tr>
+<tr>
+<td>--timeout</td>
+<td>指定允许的最大超时时间，即每条消息返回的最大时间间隔，默认为 10000 即 10 秒</td>
+</tr>
+</tbody>
+</table>
+<p>示例如下：</p>
+<pre><code class="language-shell">$ bin/kafka-consumer-perf-test.sh \
+ --broker-list kafka-host:port \
+ --messages 10000000 \
+ --topic test-topic  \
+</code></pre>
+<p>从指定消息消费1千万条消息（一定要先生产再消费，否则会报错)</p>
+<p>输出结果的格式如下：</p>
+<pre><code class="language-shell">start.time, end.time, data.consumed.in.MB, MB.sec, data.consumed.in.nMsg, nMsg.sec, rebalance.time.ms, fetch.time.ms, fetch.MB.sec, fetch.nMsg.sec
+2019-06-26  15:24:18:138, 2019-06-26 15:24:23:805, 9765.6202, 1723.2434, 10000000, 1764602.0822, 16, 5651, 1728.1225, 1769598.3012
+</code></pre>
+<p><strong>有点令人遗憾的是，输出结果没有计算不同分位数下的分布情况。因此，在实际使用过程中，这个脚本的使用率要比生产者性能测试脚本的使用率低。</strong></p>
+<p>输出解释：</p>
+<table>
+<thead>
+<tr>
+<th>输出项</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>start.time</td>
+<td>消费开始的时间，格式由 --date-format 指定</td>
+</tr>
+<tr>
+<td>end.time</td>
+<td>消费结束的时间，格式由 --date-format 指定</td>
+</tr>
+<tr>
+<td>data.consumed.in.MB</td>
+<td>消费到的数据总大小，单位为 MB</td>
+</tr>
+<tr>
+<td>MB.sec</td>
+<td>消费 TPS，即每秒消费的消息大小</td>
+</tr>
+<tr>
+<td>data.consumed.in.nMsg</td>
+<td>消费到的总消息数</td>
+</tr>
+<tr>
+<td>nMsg.sec</td>
+<td>消费 TPS，即每秒消费的消息条数</td>
+</tr>
+<tr>
+<td>rebalance.time.ms</td>
+<td>消费者组重平衡的耗时，单位为 ms，0 表示没有发生重平衡</td>
+</tr>
+<tr>
+<td>fetch.time.ms</td>
+<td>fetch 线程的总耗时，单位为 ms</td>
+</tr>
+<tr>
+<td>fetch.MB.sec</td>
+<td>fetch 线程每秒钟获取到的消息大小</td>
+</tr>
+<tr>
+<td>fetch.nMsg.sec</td>
+<td>fetch 线程每秒钟获取到的消息数量</td>
+</tr>
+</tbody>
+</table>
+<h4 id="123-端到端延迟测试">1.2.3 端到端延迟测试</h4>
+<p>端到端延迟是消息生成到消费之间的时间。 这对于实时应用程序尤其重要。</p>
+<p>例如，如果我们看一下 <strong>kafka-consumer-perf-test.sh</strong> 脚本的内容，将会看到对 <strong>kafka-run-class.sh</strong> 脚本的调用，并以 <strong>kafka.tools.ConsumerPerformance</strong>类 作为参数。那我们以<strong>kafka.tools.EndToEndLatency 作为参数，可以得到端到端计算时间延迟.</strong></p>
+<p>例如，在我们的test-topic测试主题中，要生成和使用大小为1kb的消息共1万条，并且将acks值设置为1（leader acks）并通过ssl端口9092进行加密数据传输，我们的命令如下：</p>
+<pre><code class="language-shell">$ bin/kafka-run-class.sh kafka.tools.EndToEndLatency 127.0.0.1:9092 test-rep-one 10000 1 1024
+</code></pre>
+<p>结果如下：</p>
+<pre><code class="language-shell">0	24.462583
+1000	4.121916000000001
+2000	0.210125
+3000	0.175917
+4000	0.23775
+5000	0.1855
+6000	0.281
+7000	0.126708
+8000	0.168417
+9000	0.441625
+Avg latency: 0.3095 ms
+
+Percentiles: 50th = 0, 99th = 1, 99.9th = 5
+</code></pre>
+<h2 id="2-正确性测试">2. 正确性测试</h2>
+<h3 id="21-正确性测试常用方法">2.1 正确性测试常用方法</h3>
+<p>Copy From 《<a href="https://www.leviathan.vip/2018/05/15/Jepsen%E7%9A%84%E4%BD%BF%E7%94%A8%E4%B8%8E%E7%BA%BF%E6%80%A7%E4%B8%80%E8%87%B4%E6%80%A7/">Jepsen 的使用与线性一致性</a>》</p>
+<p>对于分布式系统来说，正确性是最重要的特性，而正确性是很难证明的，尤其是分布式系统的正确性。所以我们对于分布式系统的测试往往从形式化验证和软件工程的测试方法:</p>
+<h4 id="211-形式化验证">2.1.1 形式化验证</h4>
+<p>对于分布式系统的算法模型，需要进行形式化验证，利用数学语言证明算法满足正确性。目前比较常用的是TLA+，TLA+是图灵奖得主Leslie Lamport发明的专门用来描述并验证复杂系统行为的形式化方法，使用TLA+可以帮助我们在设计时，基于系统层面的抽象对系统的正确性做形式化、规范的描述，并且定义出设计的正确性属性，自动化地加以验证，以正确性为驱动进行系统建模和设计。</p>
+<p>TLA+验证需要开发者拥有大量的形式化方法理论知识。</p>
+<h4 id="212-工业化测试混沌工程">2.1.2 工业化测试（混沌工程)</h4>
+<p>而在实际的生产环境里，多节点，交互复杂的分布式系统中，节点异常，网络异常，配置变更等场景不常发生但不可避免。为了应对这些可能出现的场景，我们对系统的测试必须尽可能提高这些事件发生的概率，比如Leadership changes, Partial network outage，从而测试整个系统的正确性。所以常见的做法如下：</p>
+<ol>
+<li>让系统的某些参数设置的不合理, 但是不违反正确性, 这样可以让那些极端的场景下的问题暴露出来。比如Election timeout 设置成非常低, Heartbeat 的间隔非常高 这样就导致更频繁的Leader Changes. 更频繁的快照等等这些操作.</li>
+<li>让运行的环境出现频繁的外部环境变化, 比如频繁进程随意启停, 网络丢包, 断网, 频繁Membership change 等等</li>
+<li>长时间的压力测试运行，引入稳定性压力测试和极限负载情况下导致系统崩溃的破坏性压力测试。</li>
+</ol>
+<p><strong>而在错误注入这个方向，Jepsen是一个很强有力的工具。</strong> Jepsen目前被认为是工程领域在一致性验证方面的最佳实践</p>
+<h3 id="22-jepsen基本概念">2.2 jepsen基本概念</h3>
+<p>Copy From 《<a href="https://www.modb.pro/db/14156">Jepsen 测试框架在图数据库 Nebula Graph 中的实践</a>》</p>
+<h4 id="221-jepsen整体架构">2.2.1 jepsen整体架构</h4>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/jepsen/jepsen%E6%9E%B6%E6%9E%84%E5%9B%BE.png" alt="jepsen架构图" loading="lazy"></figure>
+<center>jepsen架构图</center>
+<p>Jepsen 测试推荐使用 Docker 搭建集群。默认情况下由 6 个 container 组成，其中一个是控制节点（Control Node），另外 5 个是数据库的节点DB Node（默认为 n1-n5）。控制节点在测试程序开始后会启用多个 worker 进程，并发地通过 SSH 登入数据库节点进行读写操作。</p>
+<p>测试开始后，控制节点会创建一组进程，进程包含了待测试分布式系统的客户端Client。另一个 Generator 进程产生每个客户端执行的操作，并将操作应用于待测试的分布式系统。每个操作的开始和结束以及操作结果记录在历史记录中。同时，一个特殊进程 Nemesis 将故障引入系统。</p>
+<p>测试结束后，<strong>Checker</strong> 分析历史记录是否正确，是否符合一致性。用户可以使用 Jepsen 的 <a href="https://github.com/jepsen-io/knossos">knossos</a> 中提供的验证模型，也可以自己定义符合需求的模型对测试结果进行验证。同时，还可以在测试中注入错误对集群进行干扰测试。</p>
+<p>最后根据本次测试所规定的验证模型对结果进行分析。</p>
+<h4 id="222-如何使用-jepsen">2.2.2 如何使用 Jepsen</h4>
+<p>使用 Jepsen 过程中可能会遇到一些问题，可以参考一下使用 Tips：</p>
+<ol>
+<li>在 Jepsen 框架中，用户需要<strong>在 DB 接口中对自己的数据库定义下载，安装，启动与终止操作</strong>。在终止后，可以将 log 文件清除，同时也可以指定 log 的存储位置，Jepsen 会将其拷贝至 Jepsen 的 log 文件夹中，以便连同 Jepsen 自身的 log 进行分析。</li>
+<li>用户还需要<strong>提供访问自己数据库的客户端</strong>，这个客户端可以是你用 Clojure 实现的，比如 etcd 的<a href="https://github.com/aphyr/verschlimmbesserung">verschlimmbesserung</a>，或者<strong>kafka的</strong> <a href="https://clojars.org/org.clojars.khdegraaf/jepsen">khdegraaf</a>，也可以是 JDBC，等等。然后需要定义 Client 接口，告诉 Jepsen 如何对你的数据库进行操作。</li>
+<li>在 Checker 中，你可以选择需要的测试模型，比如，性能测试（checker/perf）将会生成 latency 和整个测试过程的图表，时间轴（timeline/html）会生成一个记录着所有操作时间轴的 html 页面。</li>
+<li>另外一个不可或缺的组件就是在 nemesis 中注入想要测试的错误了。网络分区（nemesis/partition-random-halves）和杀掉数据节点（kill-node）是比较常见的注入错误。</li>
+<li>在 Generator 中，用户可以告知 worker 进程需要生成哪些操作，每一次操作的时间间隔，每一次错误注入的时间间隔等等。</li>
+</ol>
+<h4 id="223-常见错误类型">2.2.3 常见错误类型</h4>
+<ul>
+<li>kill-node ：Jepsen 的控制节点会在整个测试过程中，多次随机 kill 某一节点中的数据库服务而使服务停止。此时集群中就少了一个节点。然后在一定时间后再将该节点的数据库服务启动，使之重新加入集群。</li>
+<li>partition-random-node和partition-random-halves故障是模拟常见的<strong>对称网络分区</strong>。</li>
+<li>kill-random-processes和crash-random-nodes故障是模拟进程崩溃，节点崩溃的情况。</li>
+<li>hammer-time故障是模拟一些慢节点的情况，比如发生Full GC、OOM等。</li>
+<li>bridge和partition-majorities-ring模拟比较极端的<strong>非对称网络分区</strong>。</li>
+</ul>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/jepsen/network%20error.png" alt="异常类型" loading="lazy"></figure>
+<center>异常类型</center>
+<h4 id="224-校验模型">2.2.4 校验模型</h4>
+<p>通过下面的场景校验模型可以验证操作历史是否正确。</p>
+<ul>
+<li><a href="http://jepsen-io.github.io/jepsen/jepsen.checker.html#var-noop">noop</a>： nothing</li>
+<li><a href="http://jepsen-io.github.io/jepsen/jepsen.checker.html#var-queue">queue</a>：Every dequeue must come from somewhere. Validates queue operations by assuming every non-failing enqueue succeeded, and only OK dequeues succeeded, then reducing the model with that history. Every subhistory of every queue should obey this property. Should probably be used with an unordered queue model, because we don’t look for alternate orderings.</li>
+<li><a href="http://jepsen-io.github.io/jepsen/jepsen.checker.html#var-total-queue">total-queue</a>：What goes in <em>must</em> come out. Verifies that every successful enqueue has a successful dequeue. Queues only obey this property if the history includes draining them completely.（<a href="http://jepsen-io.github.io/jepsen/jepsen.checker.html#var-set">set</a>：Given a set of :add operations followed by a final :read, verifies that every successfully added element is present in the read, and that the read contains only elements for which an add was attempted.（<strong>queue只要求每次dequeue操作时的元素必须已经enqueue；而total-queue在此基础上还要求所有的enqueue的元素最终全部出去</strong>）</li>
+<li>check-safe</li>
+<li><a href="http://jepsen-io.github.io/jepsen/jepsen.checker.html#var-linearizable">linearizable</a>：Validates linearizability with Knossos. Defaults to the competition checker, but can be controlled by passing either :linear or :wgl.</li>
+<li><a href="http://jepsen-io.github.io/jepsen/jepsen.tests.linearizable-register.html">linearizable-register</a>: Common generators and checkers for linearizability over a set of independent registers. Clients should understand three functions, for writing a value, reading a value, and compare-and-setting a value from v to v’. Reads receive nil, and replace it with the value actually read.</li>
+<li>......</li>
+</ul>
+<h3 id="23-jepsen测试message">2.3 Jepsen测试message</h3>
+<p>Copy Fom 《<a href="https://developer.aliyun.com/article/727886?spm=a2c6h.12873581.0.dArticle727886.4c3fbf3ezddN7a#slide-4">当 Messaging 遇上 Jepsen</a>》</p>
+<p>首先依旧需要明确MQ在故障下需要满足怎样的一致性。Jepsen为分布式系统提供了total-queue的测试，total-queue测试需要系统满足入队的数据必须出队，也就是消息的传输必须满足at-least-once。这符合我们对RocketMQ在故障下正确性要求，因此采用total-queue对RocketMQ进行Jepsen测试。</p>
+<p>total-queue测试如下图所示，主要分为两个阶段。第一阶段客户端进程并发地向集群随机调用入队和出队操作，入队和出队操作比例各占一半，中间会注入故障。第二阶段，为了保证每一个数据都出队，客户端进程调用drain操作，抽干队列。</p>
+<figure data-type="image" tabindex="3"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/jepsen/total-queue.png" alt="total queue" loading="lazy"></figure>
+<center>total-queue</center>
+<p>Jepsen测试提供的模型还无法完全覆盖到特定领域。比如在分布式消息领域，Jepsen仅提供了queue和total-queue的测试，来验证消息系统在故障下是否会出现消息丢失，消息重复。但是<strong>对于分布式消息队列重要的分区顺序性、全局顺序性、重平衡算法的有效性并未覆盖到。</strong></p>
+<h2 id="参考文章">参考文章</h2>
+<p>极客时间-Kafka核心技术与实战-31 常见工具脚本大汇总</p>
+<p><a href="https://www.cnblogs.com/lkxed/p/kafka-perf-test-tools.html">Kafka 性能测试脚本详解</a></p>
+<p><a href="https://taliove.com/kafka-perf-test">Kafka性能测试</a></p>
+<p><a href="https://cloud.tencent.com/developer/article/1587057">Kafka压力测试(自带测试脚本)(单机版)</a></p>
+<p><a href="https://nereuschen.github.io/2015/03/04/%E8%A7%A3%E8%AF%BBkafka%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8A%A5%E5%91%8A/">解读Kafka基准测试报告</a></p>
+<p><a href="https://www.leviathan.vip/2018/05/15/Jepsen%E7%9A%84%E4%BD%BF%E7%94%A8%E4%B8%8E%E7%BA%BF%E6%80%A7%E4%B8%80%E8%87%B4%E6%80%A7/">Jepsen 的使用与线性一致性</a></p>
+<p><a href="https://developer.aliyun.com/article/727886?spm=a2c6h.12873581.0.dArticle727886.4c3fbf3ezddN7a#slide-4">当 Messaging 遇上 Jepsen</a></p>
+<p>[Jepsen 测试框架在图数据库 Nebula Graph 中的实践](</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Docker部署Kafka集群]]></title>
+        <id>https://loser-wang.github.io/post/docker-bu-shu-kafka-ji-qun/</id>
+        <link href="https://loser-wang.github.io/post/docker-bu-shu-kafka-ji-qun/">
+        </link>
+        <updated>2022-07-01T16:14:26.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="1-自己打包部署">1. 自己打包部署</h1>
+<h2 id="11-docker部署单机kafka">1.1 Docker部署单机Kafka</h2>
+<h3 id="部署代码">部署代码</h3>
+<h4 id="目录结构">目录结构:</h4>
+<pre><code class="language-shell">./
+├── dockerfile
+├── kafka_2.12
+├── run.sh
+└── sources.list
+</code></pre>
+<h4 id="sourcelist阿里镜像">source.list(阿里镜像)</h4>
+<pre><code class="language-shell">deb http://mirrors.aliyun.com/ubuntu/ xenial main restricted
+deb http://mirrors.aliyun.com/ubuntu/ xenial-updates main restricted
+deb http://mirrors.aliyun.com/ubuntu/ xenial universe
+deb http://mirrors.aliyun.com/ubuntu/ xenial-updates universe
+deb http://mirrors.aliyun.com/ubuntu/ xenial multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-updates multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-backports main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu xenial-security main restricted
+deb http://mirrors.aliyun.com/ubuntu xenial-security universe
+deb http://mirrors.aliyun.com/ubuntu xenial-security multiverse
+</code></pre>
+<h4 id="dockerfile">dockerfile</h4>
+<pre><code class="language-java">FROM ubuntu:16.04
+# 修改更改源为阿里云
+COPY sources.list /etc/apt/sources.list
+COPY kafka_2.12-2.8.1 /kafka_2.12-2.8.1
+
+# 安装jdk
+RUN apt-get update &amp;&amp; apt-get install -y openjdk-8-jdk --allow-unauthenticated &amp;&amp; apt-get clean all
+
+
+EXPOSE 8001:9092
+EXPOSE 8002:2181
+
+# 添加启动脚本
+ADD run.sh .
+RUN chmod 755 run.sh
+ENTRYPOINT [ &quot;/run.sh&quot; ]
+</code></pre>
+<h4 id="runsh">run.sh</h4>
+<pre><code class="language-shell">#!/bin/bash
+
+# 启动自带的zookeeper
+cd /kafka_2.12-2.8.1
+bin/zookeeper-server-start.sh config/zookeeper.properties &amp;
+
+# 启动kafka
+sleep 3
+bin/kafka-server-start.sh config/server.properties &amp;
+
+# 前台进程，防止docker闪退
+top
+</code></pre>
+<h3 id="启动容器">启动容器</h3>
+<pre><code class="language-shell">$ cd ./kafka_server_test
+$ docker build -t kafka_server_test .
+$ docker run -d -it kafka_server_test
+$ docker exec -it 1bda5e6 bash
+
+# 进入容器
+$ jps
+821 Jps
+7 QuorumPeerMain
+382 Kafka
+</code></pre>
+<h2 id="12-docker部署kafka集群">1.2 Docker部署kafka集群</h2>
+<p>目录结构</p>
+<pre><code class="language-shell">./mycluster
+├── zookeeper-cluster
+      ├── dockerfile
+      ├── kafka_2.12(直接用kafka自带的zookeeper)
+      ├── zookeeper-cluster.properties
+      ├── run.sh
+      ├── sources.list
+      └── docker-compose-zookeeper.yml
+
+├── broker-cluster
+      ├── dockerfile
+      ├── kafka_2.12
+      ├── broker-cluster.properties
+      ├── run.sh
+      ├── sources.list
+      └── docker-compose.yml
+</code></pre>
+<h3 id="创建网关mykafka-subnet">创建网关mykafka-subnet</h3>
+<pre><code class="language-shell">$ docker network create --subnet 171.168.0.9/16 --gateway 171.168.0.1 mykafka-subnet
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>hostname</th>
+<th>ip</th>
+<th>port</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>网关</td>
+<td>171.168.0.1</td>
+<td>port</td>
+</tr>
+<tr>
+<td>zoo1</td>
+<td>171.168.1.1</td>
+<td>2184:2181</td>
+</tr>
+<tr>
+<td>zoo2</td>
+<td>171.168.1.2</td>
+<td>2185:2181</td>
+</tr>
+<tr>
+<td>zoo3</td>
+<td>171.168.1.3</td>
+<td>2186:2181</td>
+</tr>
+<tr>
+<td>kafka1</td>
+<td>171.168.2.1</td>
+<td>9092:9092</td>
+</tr>
+<tr>
+<td>kafka2</td>
+<td>171.168.2.2</td>
+<td>9093:9093</td>
+</tr>
+<tr>
+<td>kafka3</td>
+<td>171.168.2.3</td>
+<td>9094:9094</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zookeeper集群">Zookeeper集群</h3>
+<h4 id="zookeeper-clusterproperties">zookeeper-cluster.properties</h4>
+<pre><code class="language-shell">tickTime=2000
+dataDir=/tmp/zookeeper
+clientPort=2181
+initLimit=5
+syncLimit=2
+</code></pre>
+<h4 id="runsh-2">run.sh</h4>
+<pre><code class="language-shell">#!/bin/bash
+
+cd /kafka_2.12-2.8.1
+
+# -------------- 1 设置集群  ---------------------
+# -------------- 1.1 设置集群地址  ---------------------
+string=${ZOO_SERVERS}
+echo &quot; 参数: ${string}&quot;
+echo &quot;---------------------------------------&quot;
+
+# $IFS变量是LINUX系统默认变量，代表空格，制表符，换行符
+# 先存储默认的$IFS变量
+BAK_IFS=$IFS
+
+#设置分隔符
+IFS=&quot; &quot; 
+#自动根据分隔符进行分割
+arr=($string)
+IFS=$BAK_IFS
+echo $arr
+
+echo &quot;------------------------------------&quot;
+# Print each value of the array by using the loop
+for val in ${arr[@]};
+do
+  echo $val &gt;&gt; ./config/zookeeper-cluster.properties
+  echo $val
+done
+
+# -------------- 1.2 设置zookeeper编号  ------------------
+---
+
+mkdir /tmp/zookeeper
+touch /tmp/zookeeper/myid
+echo &quot;${ZOO_MY_ID}&quot; &gt;  /tmp/zookeeper/myid
+
+echo &quot;---------------cat --------------------&quot;
+cat ./config/zookeeper-cluster.properties
+
+echo &quot;---------------cat --------------------&quot;
+
+# -------------- 2 启动zookeeper  ---------------------
+
+bin/zookeeper-server-start.sh /kafka_2.12-2.8.1/config/zookeeper-cluster.properties 
+s 
+</code></pre>
+<h4 id="dockerfile-2">dockerfile</h4>
+<pre><code class="language-shell">FROM ubuntu:16.04
+# 修改更改源为阿里云
+COPY sources.list /etc/apt/sources.list
+COPY ./kafka_2.12-2.8.1 /kafka_2.12-2.8.1
+COPY ./zookeeper-cluster.properties /kafka_2.12-2.8.1/config/zookeeper-cluster.properties
+
+# 安装jdk
+RUN apt-get update &amp;&amp; apt-get install -y openjdk-8-jdk --allow-unauthenticated &amp;&amp; apt-get clean all
+
+
+# 添加启动脚本
+ADD run.sh .
+RUN chmod 755 run.sh
+ENTRYPOINT [ &quot;/run.sh&quot; ]
+</code></pre>
+<h4 id="docker-compose-zookeeperyml">docker-compose-zookeeper.yml</h4>
+<pre><code class="language-yaml">version: '3.4'
+
+services: 
+    zoo1:
+        build: .
+        restart: always
+        hostname: zoo1
+        container_name: zoo1
+        ports:
+            - 2184:2181
+        volumes: 
+            - &quot;/Users/loserwang/work/zk/data:/data&quot;
+            - &quot;/Users/loserwang/work/zk/datalog:/datalog&quot;
+        environment: 
+            ZOO_MY_ID: 1
+            ZOO_SERVERS: server.1=0.0.0.0:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+        networks:
+            kafka:
+                ipv4_address: 171.168.1.1
+
+    zoo2:
+        build: .
+        restart: always
+        hostname: zoo2
+        container_name: zoo2
+        ports:
+            - 2185:2181
+        volumes: 
+            - &quot;/Users/loserwang/work/zk/data:/data&quot;
+            - &quot;/Users/loserwang/work/zk/datalog:/datalog&quot;
+        environment: 
+            ZOO_MY_ID: 2
+            ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zoo3:2888:3888
+        networks:
+            kafka:
+                ipv4_address: 171.168.1.2
+
+    zoo3:
+        build: .
+        restart: always
+        hostname: zoo3
+        container_name: zoo3
+        ports:
+            - 2186:2181
+        volumes: 
+            - &quot;/Users/loserwang/work/zk/data:/data&quot;
+            - &quot;/Users/loserwang/work/zk/atalog:/datalog&quot;
+        environment: 
+            ZOO_MY_ID: 3
+            ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=0.0.0.0:2888:3888
+        networks:
+            kafka:
+                ipv4_address: 171.168.1.3
+
+# 指定已经存在的网络
+networks: 
+    kafka:
+        external: 
+            name: mykafka-subnet 
+</code></pre>
+<h4 id="启动容器-2">启动容器</h4>
+<pre><code class="language-shell">$ docker-compose -f docker-compose-zookeeper.yml up -d
+</code></pre>
+<h3 id="kafka集群">Kafka集群</h3>
+<h4 id="broker-clusterproperties">broker-cluster.properties</h4>
+<pre><code class="language-shell">log.dirs=/kafka/logs
+</code></pre>
+<h4 id="runsh-3">run.sh</h4>
+<pre><code class="language-shell">#!/bin/bash
+
+
+cd /kafka_2.12-2.8.1
+# 设置kafka集群配置
+echo &quot;broker.id=${KAFKA_BROKER_ID}&quot; &gt;&gt; ./config/broker-cluster.properties
+echo &quot;zookeeper.connect=${KAFKA_ZOOKEEPER_CONNECT}&quot;  &gt;&gt; ./config/broker-cluster.properties
+echp &quot;listeners=${KAFKA_LISTENERS}&quot; &gt;&gt; ./config/broker-cluster.properties
+
+
+# 启动kafka
+bin/kafka-server-start.sh config/broker-cluster.properties
+</code></pre>
+<h4 id="dockerfile-3">dockerfile</h4>
+<pre><code class="language-yaml">FROM ubuntu:16.04
+# 修改更改源为阿里云
+COPY sources.list /etc/apt/sources.list
+COPY ./kafka_2.12-2.8.1 /kafka_2.12-2.8.1
+COPY ./broker-cluster.properties /kafka_2.12-2.8.1/config/broker-cluster.properties
+
+# 安装jdk
+RUN apt-get update &amp;&amp; apt-get install -y openjdk-8-jdk --allow-unauthenticated &amp;&amp; apt-get clean all
+
+
+# 添加启动脚本
+ADD run.sh .
+RUN chmod 755 run.sh
+ENTRYPOINT [ &quot;/run.sh&quot; ]
+</code></pre>
+<h4 id="docker-compose-kafkayml">docker-compose-kafka.yml</h4>
+<pre><code class="language-yaml">version: '3.4'
+
+services: 
+    kafka1:
+        build: .
+        restart: always
+        hostname: kafka1
+        container_name: kafka1
+        privileged: true
+        ports:
+            - 9092:9092
+        environment:
+              KAFKA_BROKER_ID: 1
+              KAFKA_LISTENERS: PLAINTEXT://kafka1:9092
+              KAFKA_ZOOKEEPER_CONNECT: zoo1:2181,zoo2:2181,zoo3:2181
+        volumes:
+            - /Users/loserwang/work/zk/logs:/kafka
+        networks:
+            kafka:
+                ipv4_address: 171.168.2.1
+        extra_hosts: 
+            zoo1: 171.168.1.1
+            zoo2: 171.168.1.2
+            zoo3: 171.168.1.3
+
+    kafka2:
+        build: .
+        restart: always
+        hostname: kafka2
+        container_name: kafka2
+        privileged: true
+        ports:
+            - 9093:9093
+        environment:
+              KAFKA_BROKER_ID: 2
+              KAFKA_LISTENERS: PLAINTEXT://kafka2:9093
+              KAFKA_ZOOKEEPER_CONNECT: zoo1:2181,zoo2:2181,zoo3:2181
+        volumes:
+            - /Users/loserwang/work/zk/logs:/kafka
+        networks:
+            kafka:
+                ipv4_address: 171.168.2.2
+        extra_hosts: 
+            zoo1: 171.168.1.1
+            zoo2: 171.168.1.2
+            zoo3: 171.168.1.3
+
+    kafka3:
+        build: .
+        restart: always
+        hostname: kafka3
+        container_name: kafka3
+        privileged: true
+        ports:
+            - 9094:9094
+        environment:
+              KAFKA_BROKER_ID: 3
+              KAFKA_LISTENERS: PLAINTEXT://kafka3:9094
+              KAFKA_ZOOKEEPER_CONNECT: zoo1:2181,zoo2:2181,zoo3:2181
+        volumes:
+            - /Users/loserwang/work/zk/logs:/kafka
+        networks:
+            kafka:
+                ipv4_address: 171.168.2.3
+        extra_hosts: 
+           zoo1: 171.168.1.1
+           zoo2: 171.168.1.2
+           zoo3: 171.168.1.3
+
+
+networks: 
+    kafka:
+        external: 
+            name: mykafka-subnet       
+</code></pre>
+<h4 id="启动容器-3">启动容器</h4>
+<pre><code class="language-shell">$ docker-compose -f docker-compose-kafka.yml up -d
+</code></pre>
+<h3 id="验证">验证</h3>
+<pre><code class="language-shell">$ ./kafka-topics.sh --create --zookeeper  localhost:2184 --replication-factor 1 --partitions 1 --topic mytest
+Created topic mytest.
+
+$ ./kafka-topics.sh --zookeeper 127.0.0.1:2185 --list
+mytest
+</code></pre>
+<h1 id="2-官方镜像部署">2. 官方镜像部署</h1>
+<p>官方说明：https://developer.confluent.io/quickstart/kafka-docker/</p>
+<ol>
+<li>设置：docker-compose.yml</li>
+</ol>
+<pre><code class="language-yaml">---
+version: '3'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    ports:
+      - &quot;2181:2181&quot;
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: broker
+    ports:
+    # To learn about configuring Kafka for access across networks see
+    # https://www.confluent.io/blog/kafka-client-cannot-connect-to-broker-on-aws-on-docker-etc/
+      - &quot;9092:9092&quot;
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+</code></pre>
+<ol start="2">
+<li>启动container:</li>
+</ol>
+<pre><code class="language-shell">$ docker-compose up -d
+</code></pre>
+<ol start="3">
+<li>创建topic</li>
+</ol>
+<pre><code class="language-shell">$ docker exec broker \
+		 kafka-topics  --bootstrap-server broker:9092 \
+            			 --create \
+           			   --topic quickstart
+</code></pre>
+]]></content>
+    </entry>
+</feed>

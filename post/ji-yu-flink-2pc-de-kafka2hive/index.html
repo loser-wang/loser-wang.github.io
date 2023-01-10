@@ -1,0 +1,398 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>kafka数据同步4:基于Flink 2PC的Kafka2Hive | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="kafka数据同步4:基于Flink 2PC的Kafka2Hive | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="Kafka2Hive是基于Flink实现的kafka to Hive数据同步器。其语意为 exactly-once，保证kafka中的每个消息都恰好只同步一份。
+本篇通过Kafka2Hive这个案例，来看一下如何实现Kafka exactl..." />
+    <meta name="keywords" content="分布式" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              kafka数据同步4:基于Flink 2PC的Kafka2Hive
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-07-26
+              </span>
+              <span>
+                11 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/YpWtC30aC/" class="post-tag">
+                  # 分布式
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/logo.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <p>Kafka2Hive是基于Flink实现的kafka to Hive数据同步器。其语意为 exactly-once，保证kafka中的每个消息都恰好只同步一份。</p>
+<p>本篇通过Kafka2Hive这个案例，来看一下如何实现Kafka exactly-once 语义的数据同步。<br>
+<a name="zb4x2"></a></p>
+<h2 id="1-exactly-once">1. exactly-once</h2>
+<p>首先回忆一下：《Kafka数据同步1: Flink容错机制 》</p>
+<blockquote>
+<p>When we say “exactly-once semantics”, what we mean is that each incoming event affects the final results exactly once. Even in case of a machine or software failure, there’s no duplicate data and no data that goes unprocessed.</p>
+</blockquote>
+<p>Flink对内部的状态通过checkpionting机制来保证 exactly-once：如果机器或软件发生故障并在重新启动时，Flink 应用程序会从最近成功完成的checkpoint恢复处理；Flink 恢复应用程序state并从ckeckpoint回滚到输入流中的相应开始位置，然后再次开始处理，而在此checkpoint之后事件生成的state不可见。这意味着 Flink 计算结果时就好像失败从未发生过一样。</p>
+<p>但是 Flink 应用程序与各种data sinks一起运行，为了提供端到端的Exactly-once语义，仅仅保证Flink应用程序的状态符合Exactly-once语义是不够的，这些语义也适用于Flink写入的外部系统。<strong>这些外部系统必须提供一种提交或回滚写入的方法与 Flink 的检查点相协调</strong>。</p>
+<p>在分布式系统中协调提交和回滚的一种常见方法是两阶段提交协议。Flink 通过 TwoPhaseCommitSinkFunction 利用两阶段提交协议来提供端到端的精确一次语义。</p>
+<p>设计时需要考虑的问题</p>
+<ul>
+<li><strong>Q1</strong> Pre-commit阶段：<strong>如果在pre-commit阶段发生故障</strong>，任务重启后，我们将从最近的检查点重新初始化应用程序，Flink state会恢复自动到上一次检查点时的状态。但是如何rollback外部数据库的pre-commit事务， 并且何时rollback？</li>
+<li><strong>Q2</strong> commit阶段：<strong>如果在pre-commit和commit之间发生故障</strong>，任务重启后如何保证最终提交成功？</li>
+<li><strong>Q3</strong> Coordinator故障：<strong>如果整个Flink集群挂掉或者Coordinator（Job Manager)故障</strong>，在新的集群中<strong>重启Job</strong>，state丢失，无法使用checkpoint来恢复，这时候如何进行恢复？</li>
+</ul>
+<p><a name="SXFQ9"></a></p>
+<h2 id="2-数据格式">2. 数据格式</h2>
+<p><a name="DERcM"></a></p>
+<h3 id="21-record同步到hive">2.1 record同步到hive</h3>
+<p>在配置文件中指定好 kafka topicName 到 hive TableName的映射，然后Kafka2Hive会实现将 Partation Message中的数据 <strong>shuffle</strong> 到相应时间的Bucket中。</p>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/kakfa2hive%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=Xkanb&amp;originHeight=201&amp;originWidth=1169&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br>
+<a name="HhkuZ"></a></p>
+<h3 id="22-offset保存到hdfs">2.2 offset保存到hdfs</h3>
+<p>为了防止Coordinator故障，每次checkpointing快照不仅持久化数据，还会持久化offset到hive。</p>
+<p>offset持久化保存到hdsf，格式如下：</p>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%E6%96%87%E4%BB%B6.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=eWXm4&amp;originHeight=590&amp;originWidth=1091&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<ul>
+<li>kafka_partition_offsets为根目录，内部有一系列时间目录，文件名为Job的<strong>启动时间</strong>。</li>
+<li>时间目录内部有一系列检查点目录，文件名代表<strong>检查点</strong>的版本</li>
+<li>检查点目录下面有一系列文件，这些文件就是不同任务的<strong>快照</strong>。文件中保存每个分区消费的offset。(<strong>第一行还会保存对应的hive文件地址，用于后续宕机重启恢复, 解决Q3</strong>）</li>
+</ul>
+<p><a name="qQkMW"></a></p>
+<h3 id="23-文件状态">2.3 文件状态</h3>
+<p>不管是record、offset，其写入的文件都分三种状态</p>
+<ul>
+<li><strong><em>.in-progress</em></strong>: 表示正在写入的文件，相当于事务的执行阶段。</li>
+<li><em><strong>.pending</strong></em>: 预提交状态。</li>
+<li><strong><em>.final</em></strong>: 已提交状态。只有.final才表示数据的最终状态(一致性状态），可以被读取。</li>
+</ul>
+<p><a name="naQxt"></a></p>
+<h3 id="24-checkpoint-state格式">2.4 checkpoint State格式</h3>
+<p><img src="https://cdn.nlark.com/yuque/0/2022/svg/1801723/1658153507540-9350d827-4ac3-410c-9309-4e3f86e37048.svg#clientId=u1b743991-f38b-4&amp;crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;from=ui&amp;id=u24ffa78d&amp;name=processor.svg&amp;originHeight=770&amp;originWidth=1462&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;size=22202&amp;status=done&amp;style=none&amp;taskId=u34e83138-83f0-4383-904e-f363ac26469&amp;title=" alt="processor.svg" loading="lazy"><br />每次CheckPoint保存的state快照不仅包括本次checkpointing的**_ .in-progress <em><strong>文件路径 和</strong></em> .pending <em><strong>文件路径。还保存了本次checkpoint之前的所有</strong>历史**checkpoint的 **</em>.pending_** 文件路径。<br />任务重启后，checkpoint的state中不包含之后的 **_.in-progress <em>**文件路径 和 **</em>.pending _**文件路径, 默默丢弃，实现rollback, 解决Q1。然后定期清理垃圾文件即可。<br />历史checkpoint的 .pending 文件路径是为了重启后保证pre-commit最终一定执行成功，解决Q2。<br /><strong>如果Flink集群运行正常，仅仅进行任务重启，Q1和Q2都可以通过Flink checkpoint机制来解决。但是Q3由于系统重启或者换机器集群处理，由于checkpoint和state丢失，无法通过checkpoint机制来解决，而且发生的阶段比较随机，包含了前两个时刻，需要格外讨论。</strong></p>
+<p><a name="WDKCf"></a></p>
+<h2 id="3-流程">3. 流程</h2>
+<p>过一下流程，看kafka2Hive如何运行，如何保证一致性。其中consumer group的内容参考：《Kafka数据同步2: FlinkKafkaConsumerBase 》</p>
+<p><a name="f0c0fc1a"></a></p>
+<h3 id="a-某一时刻">a. 某一时刻</h3>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/%E6%9F%90%E4%B8%80%E6%97%B6%E5%88%BB%E7%9A%84%E7%8A%B6%E6%80%81.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=oJBOd&amp;originHeight=412&amp;originWidth=868&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p>从input流中读取了一个消息X, 包含partition和offset信息。</p>
+<p><a name="b2a9ba66"></a></p>
+<h3 id="b-数据转化">b. 数据转化</h3>
+<figure data-type="image" tabindex="3"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E5%A4%84%E7%90%86.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=xWnQ6&amp;originHeight=623&amp;originWidth=989&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p>读取消息X后，processor算子会先更新对应partition的offset，然后将数据写入Hive对应的临时文件,即_tmp/<em><span class='katex-error' title='ParseError: KaTeX parse error: Expected group after &#039;_&#039; at position 18: …ucketPath}_tast_̲'>{bucketPath}_tast_</span></em>{tastIndex}_${task}</p>
+<p><a name="26303872"></a></p>
+<h3 id="c-checkpoint-barrier">c. checkpoint barrier</h3>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/checkpoint%20barrier%20.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=ux5bM&amp;originHeight=412&amp;originWidth=691&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br />当读到 checkpoint barrier 边界时，会触发<strong>checkpointing</strong>操作产生系统快照，供后续出现故障重启时使用。两个checkpoint barrier之间的执行操作就像一段分布式事务，采用两阶段提交协议。</p>
+<p><a name="cf349ed8"></a></p>
+<h3 id="d-pre-commit-snapshotstate">d. pre-commit: snapshotState</h3>
+<p>首先第一阶段，所有算子都保存快照到state backend。只有所有的算子的snapshotState方法都执行成功，checkpoint算成功，才能获取对应的state。</p>
+<figure data-type="image" tabindex="4"><img src="https://flink.apache.org/img/blog/eo-post-graphic-4.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=F9qmR&amp;originHeight=1212&amp;originWidth=2154&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="338880c2"></a></p>
+<h4 id="data-source">Data Source</h4>
+<p><strong>kafaConsumer将当前的offset保存到state。</strong></p>
+<p><a name="8c09b8b5"></a></p>
+<h4 id="data-sink">Data Sink</h4>
+<p>由两部分组成：</p>
+<ul>
+<li>hive中的 in-progress 文件停止写入，然后转化为pending文件(pending文件代表 <strong>pre-commit)</strong> ，<strong>并且将文件路径snapshot到state</strong>。(不止保存checkpoint的信息，还保存所有<strong>历史checkpoint的信息</strong>）</li>
+<li>将内存中的offset信息持久到hdfs</li>
+</ul>
+<figure data-type="image" tabindex="5"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/record%20pending.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=sz5VU&amp;originHeight=210&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="6"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%20in-progress.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=C0xZk&amp;originHeight=330&amp;originWidth=1022&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="sf66G"></a></p>
+<h4 id="如果在此阶段发生故障">如果在此阶段发生故障</h4>
+<ol>
+<li>
+<p>hive文件转化为 <strong><em>.pending</em></strong> 状态，在Hdfs offset处于 **_.in-progress _**状态或者之前状态时，系统恰好故障。重启任务或者job，相当于没发生一样，没有副作用。</p>
+</li>
+<li>
+<p>hive record转化为**_ .pending <em>**状态，在Hdfs offset处于 **</em>.pending _<strong>状态时，故障导致</strong>任务重启**</p>
+<ul>
+<li>hive得益于checkpointing机制，不感知上一次checkpoint之后的.pending文件，相当于实现了rollback。</li>
+<li>但是Hdfs offset rollback操作目前好像没有相应的保障，没有rollback, 后续需要做额外保障。(即第三种可能)</li>
+</ul>
+</li>
+<li>
+<p>hive record转化为 <strong><em>.pending</em></strong> 状态，在Hdfs offset处于**_ .pending _<strong>状态时，故障导致</strong>job重启**， 处理方式为：</p>
+<ul>
+<li>先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态</li>
+<li>再重启Flink进行2-pc 流处理</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>todo: 补一张图</p>
+</blockquote>
+<blockquote>
+<p>当Job重启时，发现Hdfs offset处于 .pending 状态，其实对应3种可能：</p>
+<ul>
+<li><strong>pre-commit阶段还未来得及告诉JobManager就宕机</strong>，说明pre-commit执行失败，<strong>重启后consumer group 默认是从上一次checkpiont开始消费</strong>，需要对hdfs offset进行rollback,  即默默丢弃offset文件, 然后开始消费。</li>
+<li><strong>通知了JobManeger，但是commit阶段才开始, 还未完成hive commit就宕机了</strong>, 重启后由于dataSouce已经提交成功了，默认从本次checkpoint开始消费 ，需要确保commit，将hive文件和offset变为.final</li>
+<li><strong>commit阶段刚把hive commit, 但是offset未commit</strong>, 其实已经视为成功，将offset设置为 .final 即可。</li>
+</ul>
+<p>但是，JobManager也刚刚重启，无法判断当前处于什么阶段。<strong>尤其前两种情况，都有 .pending hive文件 和 .pending offset文件，但是重启后开始消费的offset不同。</strong></p>
+<p>采取的保证措施是也不管处于什么阶段了，直接将 hdfs offset和hive文件全部变为 .final, 然后从后面启动Flink作业，初始offset为hdfs offset + 1, 而非接着上次。</p>
+</blockquote>
+<p><a name="418d23c8"></a></p>
+<h3 id="e-commit-notifycheckpointcomplete">e. commit: notifyCheckpointComplete</h3>
+<p>如果所有算子的snapshot方法完成, 说明各算子都已经&quot;pre-commit&quot;。各算子调用notifyCheckpointComplete进行后续操作：</p>
+<figure data-type="image" tabindex="7"><img src="https://flink.apache.org/img/blog/eo-post-graphic-5.png#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=Fa7vq&amp;originHeight=1208&amp;originWidth=2156&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><a name="338880c2-1"></a></p>
+<h4 id="data-source-2">Data Source</h4>
+<p>kafka consumer会提交offset，进入下一轮消费。</p>
+<p><a name="8c09b8b5-1"></a></p>
+<h4 id="data-sink-2">Data Sink</h4>
+<p>将hive中的消息从pending文件转化为final文件。消息之后才能被消费。</p>
+<p>将hdfs中的消息从pending文件转化为final。</p>
+<figure data-type="image" tabindex="8"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/record%20pending%20to%20final.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=gyBPN&amp;originHeight=210&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"></figure>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/offset%20final.svg#crop=0&amp;crop=0&amp;crop=1&amp;crop=1&amp;id=rzh3k&amp;originHeight=197&amp;originWidth=676&amp;originalType=binary&amp;ratio=1&amp;rotation=0&amp;showTitle=false&amp;status=done&amp;style=none&amp;title=" alt="" loading="lazy"><br>
+<a name="IaWAc"></a></p>
+<h4 id="如果在此阶段发生故障-2">如果在此阶段发生故障</h4>
+<ol>
+<li>hive record转化为**_ .pending <em>**状态或者之前状态，在Hdfs offset处于 **</em>.pending _<strong>状态或者之前状态时，故障导致</strong>任务重启**，通过initializeState方法重新commit。</li>
+<li>hive record转化为**_ .pending_** 状态，在Hdfs offset处于 <strong>_ .pending_</strong> 状态或者之前状态时，故障导致<strong>job重启</strong>，同前面pre-commit阶段讨论的一样， 先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态，再重启2-pc。</li>
+<li>hive record转化为 <strong>_.final _<strong>状态，在Hdfs offset处于 .</strong>_pending _<strong>状态或者之前状态时，故障导致</strong>任务重启</strong>，视为已经成功提交。</li>
+<li>hive record转化为 .<strong><em>final</em></strong> 状态，在Hdfs offset处于 <strong>_.pending _<strong>状态或者之前状态时，故障导致</strong>job重启</strong>，同前面pre-commit阶段讨论的一样， 先保证 .pending 状态 offset文件对应的hive文件成功转化为.final状态，再重启2-pc。</li>
+<li>hive record转化为 **_.final <em>**状态，在Hdfs offset处于 **</em>.final _**状态或者之前状态时，故障导致任务重启或者job重启，无影响。</li>
+</ol>
+<p><a name="caea9fac"></a></p>
+<h3 id="f-initializestate重启">f. initializeState重启</h3>
+<p>如果任务出错重启, 重启时会调用CheckpointedFunction的initializeState方法：</p>
+<ul>
+<li>从状态中恢复事务信息</li>
+<li>对pre-commit事务的提交（<strong>问题2</strong>）</li>
+<li>对失败的事务进行rollback。（<strong>问题1</strong>，直接无视本次checkpoint之后的操作)</li>
+</ul>
+<p><a name="338880c2-2"></a></p>
+<h4 id="data-source-3">Data Source</h4>
+<p>pre-commit信息就是上一次checkpoint时保存在state中的offset。从该offset之后开始消费，就完成了事务的提交。</p>
+<p><a name="8c09b8b5-2"></a></p>
+<h4 id="data-sink-3">Data Sink</h4>
+<p>pre-commit信息就是路径保存在state中的<strong>历史checkpont的所有_ .pending _文件</strong>，保证 <strong>.pending <strong>文件成功转换为</strong>_ .final_</strong> 状态。<br />hive rollback操作就是不感知将当前checkpoint之后生成的 **_.in-progress _<strong>和 _</strong>.pending **_文件，使其成为垃圾文件，定期清理。</p>
+<p><a name="1ff9ca29"></a></p>
+<h3 id="g-job重启极少情况">g. job重启（极少情况）</h3>
+<p>类似2PC成功执行的前提是Coordinator正常运行，Flink的2PC执行的前提也是Job Master正常运行。但是如果整个Flink应用突然宕机或者出现其他异常，我们被迫在新的Flink应用重启job。此时state消失了，将数据恢复到一致呢？<br />启动时，从保存在hdfs中的最近成功checkpoint的offset信息来恢复（即所有checkpoint目录下所有的后缀都不是 .in-progress)</p>
+<ul>
+<li>如果第一次启动或者没有checkpoint成功过，binlog从最旧消费（startFromOffset = -1） ，其他从最新消费（startFromOffset = 1）</li>
+<li>如果同步成功过，<strong>将 .pending状态的offset对应的hive文件变为 .final</strong>，然后从上次作业最后成功的 checkpoint 手动恢复offset和partition。</li>
+</ul>
+<p><a name="2a302fa5"></a></p>
+<h2 id="参考文章">参考文章</h2>
+<p><a href="https://vonng.gitbooks.io/ddia-cn/content/ch9.html">设计数据密集型应用DDIA - 中文翻译</a></p>
+<p><a href="https://tjcug.github.io/blog/2018/05/29/Apache-Flink-%E5%AE%98%E6%96%B9%E6%96%87%E6%A1%A3%E7%BF%BB%E8%AF%91%E4%B9%8B-%E5%AE%B9%E9%94%99%E6%9C%BA%E5%88%B6/">Apache Flink 官方文档翻译之 容错机制</a></p>
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-1.15/zh/docs/learn-flink/fault_tolerance/#%E7%8A%B6%E6%80%81%E5%BF%AB%E7%85%A7">Apache Flink官方文档之通过状态快照实现容错处理</a></p>
+<p>[Apache Flink官方文档之An Overview of End-to-End Exactly-Once Processing in Apache Flink (with Apache Kafka, too!)](</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#1-exactly-once">1. exactly-once</a></li>
+<li><a href="#2-%E6%95%B0%E6%8D%AE%E6%A0%BC%E5%BC%8F">2. 数据格式</a>
+<ul>
+<li><a href="#21-record%E5%90%8C%E6%AD%A5%E5%88%B0hive">2.1 record同步到hive</a></li>
+<li><a href="#22-offset%E4%BF%9D%E5%AD%98%E5%88%B0hdfs">2.2 offset保存到hdfs</a></li>
+<li><a href="#23-%E6%96%87%E4%BB%B6%E7%8A%B6%E6%80%81">2.3 文件状态</a></li>
+<li><a href="#24-checkpoint-state%E6%A0%BC%E5%BC%8F">2.4 checkpoint State格式</a></li>
+</ul>
+</li>
+<li><a href="#3-%E6%B5%81%E7%A8%8B">3. 流程</a>
+<ul>
+<li><a href="#a-%E6%9F%90%E4%B8%80%E6%97%B6%E5%88%BB">a. 某一时刻</a></li>
+<li><a href="#b-%E6%95%B0%E6%8D%AE%E8%BD%AC%E5%8C%96">b. 数据转化</a></li>
+<li><a href="#c-checkpoint-barrier">c. checkpoint barrier</a></li>
+<li><a href="#d-pre-commit-snapshotstate">d. pre-commit: snapshotState</a>
+<ul>
+<li><a href="#data-source">Data Source</a></li>
+<li><a href="#data-sink">Data Sink</a></li>
+<li><a href="#%E5%A6%82%E6%9E%9C%E5%9C%A8%E6%AD%A4%E9%98%B6%E6%AE%B5%E5%8F%91%E7%94%9F%E6%95%85%E9%9A%9C">如果在此阶段发生故障</a></li>
+</ul>
+</li>
+<li><a href="#e-commit-notifycheckpointcomplete">e. commit: notifyCheckpointComplete</a>
+<ul>
+<li><a href="#data-source-2">Data Source</a></li>
+<li><a href="#data-sink-2">Data Sink</a></li>
+<li><a href="#%E5%A6%82%E6%9E%9C%E5%9C%A8%E6%AD%A4%E9%98%B6%E6%AE%B5%E5%8F%91%E7%94%9F%E6%95%85%E9%9A%9C-2">如果在此阶段发生故障</a></li>
+</ul>
+</li>
+<li><a href="#f-initializestate%E9%87%8D%E5%90%AF">f. initializeState重启</a>
+<ul>
+<li><a href="#data-source-3">Data Source</a></li>
+<li><a href="#data-sink-3">Data Sink</a></li>
+</ul>
+</li>
+<li><a href="#g-job%E9%87%8D%E5%90%AF%E6%9E%81%E5%B0%91%E6%83%85%E5%86%B5">g. job重启（极少情况）</a></li>
+</ul>
+</li>
+<li><a href="#%E5%8F%82%E8%80%83%E6%96%87%E7%AB%A0">参考文章</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/kafka-shu-ju-tong-bu-3-kafka2doris/">
+              <h3 class="post-title">
+                Kafka数据同步3: Kafka2Doris
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

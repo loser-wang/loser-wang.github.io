@@ -1,0 +1,1539 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ali-dp | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Ali-dp | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="
+相关Java基础
+
+spring boot starter
+你一直用的 Spring Boot Starter 是怎么回事
+
+spi
+Java进阶之SPI机制详解
+
+相关阿里中间件
+
+HSF
+hsf参考手册HSF（High-speed S..." />
+    <meta name="keywords" content="源码" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Ali-dp
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-01-05
+              </span>
+              <span>
+                31 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/code/" class="post-tag">
+                  # 源码
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/ADP.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <p><a name="ABzZS"></a></p>
+<h1 id="相关java基础">相关Java基础</h1>
+<p><a name="Cl3jt"></a></p>
+<h2 id="spring-boot-starter">spring boot starter</h2>
+<p><a href="https://zhuanlan.zhihu.com/p/67484886">你一直用的 Spring Boot Starter 是怎么回事</a></p>
+<p><a name="u3WjW"></a></p>
+<h2 id="spi">spi</h2>
+<p><a href="https://www.jb51.net/article/212450.htm#_label1">Java进阶之SPI机制详解</a></p>
+<p><a name="ugfC4"></a></p>
+<h1 id="相关阿里中间件">相关阿里中间件</h1>
+<p><a name="MWp6F"></a></p>
+<h2 id="hsf">HSF</h2>
+<p><a href="http://mw.alibaba-inc.com/products/hsf/_book/mw-docs/hsf-manuel-book/chapter24.html?spm=a1zco.hsf.0.0.1be8122eEp4ylp">hsf参考手册</a><br />HSF（High-speed Service Framework）作为阿里巴巴的基础中间件，联通不同的业务系统，解耦系统间的实现依赖。HSF 从分布式应用的层面，统一了服务的发布/调用方式，从而帮助用户可以方便、快速的开发分布式应用，以及提供或使用公共功能模块。为用户屏蔽了分布式领域中的各种复杂技术细节，如：远程通讯、序列化实现、性能损耗、同步/异步调用方式的实现等。<br>
+<a name="xOZXk"></a></p>
+<h3 id="整体架构">整体架构</h3>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/hsf_architecture_%E4%BC%98%E5%8C%96%20.png" alt="hsf_architecture_优化.png" loading="lazy"><br>
+<a name="WLbQ5"></a></p>
+<h3 id="使用">使用</h3>
+<p><a name="joKmI"></a></p>
+<h4 id="provider">Provider</h4>
+<ul>
+<li>
+<p>API形式配置HSF服务</p>
+<pre><code class="language-java">// ---------------------- 装配 -----------------------//
+// [设置] HSF服务发布逻辑
+HSFApiProviderBean hsfApiProviderBean = new HSFApiProviderBean();
+// [设置] 发布服务的接口
+hsfApiProviderBean.setServiceInterface(&quot;com.alibaba.middleware.hsf.guide.api.service.OrderService&quot;);
+// [设置] 服务的实现对象
+hsfApiProviderBean.setTarget(target);
+// [设置] 服务的版本
+hsfApiProviderBean.setServiceVersion(&quot;1.0.0&quot;);
+// [设置] 服务的归组
+hsfApiProviderBean.setServiceGroup(&quot;HSF&quot;);
+// [设置] 服务的响应时间
+hsfApiProviderBean.setClientTimeout(3000);
+// [设置] 服务传输业务对象时的序列化类型
+hsfApiProviderBean.setPreferSerializeType(&quot;hessian2&quot;);
+// ---------------------- 发布 -----------------------//
+// [发布] HSF服务
+hsfApiProviderBean.init();
+</code></pre>
+</li>
+<li>
+<p>xml配置HSF服务</p>
+<pre><code class="language-xml">&lt;bean class=&quot;com.taobao.hsf.app.spring.util.HSFSpringProviderBean&quot; init-method=&quot;init&quot;&gt;
+  &lt;!--[设置] 发布服务的接口--&gt;
+  &lt;property name=&quot;serviceInterface&quot; value=&quot;com.alibaba.middleware.hsf.guide.api.service.OrderService&quot;/&gt;
+  &lt;!--[设置] 服务的实现对象 target必须配置[ref]，为需要发布为HSF服务的spring bean id--&gt;
+  &lt;property name=&quot;target&quot; ref=&quot;引用的BeanId&quot;/&gt;
+  &lt;!--[设置] 服务的版本--&gt;
+  &lt;property name=&quot;serviceVersion&quot; value=&quot;1.0.0&quot;/&gt;
+  &lt;!--[设置] 服务的归组--&gt;
+  &lt;property name=&quot;serviceGroup&quot; value=&quot;HSF&quot;/&gt;
+  &lt;!--[设置] 服务的响应时间--&gt;
+  &lt;property name=&quot;clientTimeout&quot; value=&quot;3000&quot;/&gt;
+  &lt;!--[设置] 服务传输业务对象时的序列化类型--&gt;
+  &lt;property name=&quot;preferSerializeType&quot; value=&quot;hessian2&quot;/&gt;
+&lt;/bean&gt;
+</code></pre>
+</li>
+<li>
+<p>注解配置HSF服务</p>
+</li>
+</ul>
+<p>首先是在项目中增加依赖starter:</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+    &lt;groupId&gt;com.alibaba.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;pandora-hsf-spring-boot-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>然后将@HSFProvider配置到实现的类型上，上述例子中的API配置等同于如下注解配置：</p>
+<pre><code class="language-java">@HSFProvider(serviceInterface = OrderService.class, serviceGroup = &quot;HSF&quot;, serviceVersion = &quot;1.0.0&quot;, clientTimeout = 3000)
+public class OrderServiceImpl implements OrderService {
+    @Autowired
+    private OrderDAO orderDAO;
+
+    @Override
+    public OrderModel queryOrder(Long id) {
+        return orderDAO.queryOrder(id);
+    }
+}
+</code></pre>
+<p><a name="Rz0TZ"></a></p>
+<h4 id="consumer">Consumer</h4>
+<ul>
+<li>
+<p>API形式配置HSF服务</p>
+<pre><code class="language-java">// ---------------------- 装配 -----------------------//
+// [设置] HSF服务订阅逻辑
+HSFApiConsumerBean hsfApiConsumerBean = new HSFApiConsumerBean();
+// [设置] 订阅服务的接口
+hsfApiConsumerBean.setInterfaceName(&quot;com.alibaba.middleware.hsf.guide.api.service.OrderService&quot;);
+// [设置] 服务的版本
+hsfApiConsumerBean.setVersion(&quot;1.0.0&quot;);
+// [设置] 服务的归组
+hsfApiConsumerBean.setGroup(&quot;HSF&quot;);
+// ---------------------- 订阅 -----------------------//
+// [订阅] HSF服务，同步等待地址推送，默认false(异步)，同步默认超时时间3000毫秒
+hsfApiConsumerBean.init(true);
+</code></pre>
+</li>
+</ul>
+<p>// ---------------------- 代理 -----------------------//<br>
+// [代理] 获取HSF代理<br>
+OrderService orderService = (OrderService) hsfApiConsumerBean.getObject();<br>
+// ---------------------- 调用 -----------------------//<br>
+// [调用] 发起HSF调用<br>
+OrderModel orderModel = orderService.queryOrder(1L);</p>
+<pre><code>- xml配置HSF服务
+```xml
+&lt;bean id=&quot;CallHelloWorld&quot; class=&quot;com.taobao.hsf.app.spring.util.HSFSpringConsumerBean&quot;&gt;
+    &lt;!--[设置] 订阅服务的接口--&gt;
+    &lt;property name=&quot;interfaceName&quot; value=&quot;com.alibaba.middleware.hsf.guide.api.service.OrderService&quot;/&gt;
+    &lt;!--[设置] 服务的版本--&gt;
+    &lt;property name=&quot;version&quot; value=&quot;1.0.0&quot;/&gt;
+    &lt;!--[设置] 服务的归组--&gt;
+    &lt;property name=&quot;group&quot; value=&quot;HSF&quot;/&gt;
+&lt;/bean&gt;
+</code></pre>
+<ul>
+<li>注解配置HSF服务</li>
+</ul>
+<p>首先是在项目中增加依赖starter:</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+    &lt;groupId&gt;com.alibaba.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;pandora-hsf-spring-boot-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>通常一个HSF Consumer需要在多个地方使用，但并不需要在每次使用的地方都用@HSFConsumer来标记。只需要写一个统一个Config类，然后在其它需要使用的地方，直接@Autowired注入即可上述例子中的API配置等同于如下注解配置：</p>
+<pre><code class="language-java">@Configuration
+public class HsfConfig {
+    @HSFConsumer(serviceVersion = &quot;1.0.0&quot;, serviceGroup = &quot;HSF&quot;)
+    OrderService orderService;
+
+}
+</code></pre>
+<p><a name="lyinw"></a></p>
+<h3 id="rpcfilter">RPCFilter</h3>
+<pre><code class="language-java">//com.taobao.hsf.invocation.filter.RPCFilter
+@Deprecated
+@Scope(Scope.Option.PROTOTYPE)
+public interface RPCFilter {
+    ListenableFuture&lt;RPCResult&gt; invoke(InvocationHandler nextHandler, Invocation invocation) throws Throwable;
+
+    void onResponse(Invocation invocation, RPCResult rpcResult);
+
+}
+</code></pre>
+<p><strong>HSF 内部以SPI方式设计了调用过滤器，并且能够主动发现用户的调用过滤器扩展点，将其集成到 HSF 调用链路中，使扩展方能够方便的对 HSF 请求进行扩展处理:</strong></p>
+<pre><code class="language-java">//com.taobao.hsf.filter.FilterInvocationHandler#start
+@Override
+    public void start() {
+        if (RPCFilterBuilder.hasOldExtension(serviceMetadata)) {
+            hasOldExtension = true;
+            InvocationHandlerAdapter invocationHandlerAdapter = new     InvocationHandlerAdapter(delegate);
+            //spi方式集成调用链
+            filterDelegate = RPCFilterBuilder.buildInvokerChain(invocationHandlerAdapter, serviceMetadata);
+        } else {
+            hasOldExtension = false;
+        }
+    }
+
+
+
+// com.taobao.hsf.filter.RPCFilterBuilder#buildInvokerChain
+public static InvocationHandler buildInvokerChain(InvocationHandler nextHandler, ServiceMetadata metadata) {
+        List&lt;RPCFilter&gt; filters = HSFServiceContainer.getInstances(RPCFilter.class);
+        setMetadata(metadata, filters);
+        filters = sift(filters, metadata.isProvider());
+
+        List&lt;BlockAwareFilter&gt; blockAwareFilters = getBlockAwareFilter(filters);
+
+        RPCFilterNode head = new HeadNode(blockAwareFilters);
+        RPCFilterNode tail = new TailNode(nextHandler);
+        head.next = tail;
+        tail.pre = head;
+
+        for (RPCFilter rpcFilter : filters) {
+            RPCFilterNode current = new RPCFilterNode(rpcFilter);
+            RPCFilterNode pre = tail.pre;
+            current.pre = pre;
+            current.next = tail;
+            pre.next = current;
+            tail.pre = current;
+        }
+        return head;
+    }
+</code></pre>
+<p>鹰眼系统、Ali-dp等多种中间件都通过实现<code>RPCFliter</code>的方式来扩展HSF操作。</p>
+<p><a name="JWOyu"></a></p>
+<h2 id="鹰眼系统">鹰眼系统</h2>
+<p><a href="http://mw.alibaba-inc.com/products/eagleeye/_book/?spm=a1zco.8292288.0.0.70892588BHuHeW">EagleEye （鹰眼</a>)<br />通过收集和分析在不同的网络调用中间件上的日志埋点，可以得到同一次请求上的各个系统的调用链关系，有助于梳理应用的请求入口与服务的调用来源、依赖关系，同时，也对分析系统调用瓶颈、估算链路容量、快速定位异常有很大帮助。另外，业务方也可以在调用链上添加自己的业务埋点，使网络调用和实际业务内容得到关联。</p>
+<p><a name="D2784"></a></p>
+<h3 id="整体架构-2">整体架构</h3>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/eagleId001.png" alt="eagleId001.png" loading="lazy"><br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/eagleId002.png" alt="eagleId002.png" loading="lazy"></p>
+<p><a name="fnd3O"></a></p>
+<h3 id="eagleeyejava">EagleEye.java</h3>
+<p>鹰眼的信息和操作都是通过<code>EagleEye</code>类来实现的。<br>
+<a name="YT6eE"></a></p>
+<h4 id="日志地址">日志地址</h4>
+<pre><code class="language-java">// com.taobao.eagleeye;
+
+/**
+ * EagleEye 日志默认放置的位置：~/logs/eagleeye/
+*/
+static final String EAGLEEYE_LOG_DIR = locateEagleEyeLogPath();
+</code></pre>
+<p><a name="WpOUU"></a></p>
+<h4 id="当前线程关联的rpc调用上下文">当前线程关联的RPC调用上下文</h4>
+<p>EagleEye基于<strong>ThreadLocal</strong>实现上下文的存储，所以当业务方使用同步的方式时对使用者透明，根据线程维度来操作鹰眼信息：</p>
+<pre><code class="language-java">public final class RpcContext_inner extends AbstractContext implements SpanContext {
+
+    //EagleEye内容存放在线程的RpcContext_inner中
+    private static final ThreadLocal&lt;RpcContext_inner&gt; THREAD_LOCAL;
+    // .....
+ }
+</code></pre>
+<pre><code class="language-java">// com.taobao.eagleeye;
+
+/**
+     * 直接取得当前的 RpcContext，用于备份 RPC 调用上下文（不做 Map 转换），同时记录当前操作的线程ID，作为模式切换的判断条件
+     * @return
+     * @see #setRpcContext(RpcContext_inner) 还原 RpcContext
+     */
+    public static RpcContext_inner getRpcContext() {
+        RpcContext_inner ctx = RpcContext_inner.get();
+        try {
+            if (ctx != null) {
+                ctx.setThreadId(Thread.currentThread().getId());
+            }
+        } catch (Throwable re) {
+            selfLog(&quot;[ERROR] getRpcContext&quot;, re);
+        }
+        return ctx;
+    }
+
+    /**
+     * @param context 通过传入context，设置threadlocal变量
+     * @see #getRpcContext() 直接获取 RpcContext 对象
+     */
+    public static void setRpcContext(RpcContext_inner context) {
+        if (context != null) {
+            // @since 1.5.1 避免多线程的 setRpcContext 后，对 UserData/Attribute 的操作互相干扰
+            context = context.cloneInstance();
+            if (context.getThreadId() != Thread.currentThread().getId()) {
+                context.setAsyncMode(true);
+            }
+        }
+        RpcContext_inner.set(context);
+    }
+
+    /**
+     * 清理全部调用上下文信息
+     */
+    public static void clearRpcContext() {
+        RpcContext_inner.clear();
+    }
+</code></pre>
+<p><a name="uFnp2"></a></p>
+<h4 id="获取traceid">获取traceId</h4>
+<p>TraceID是RPC链路的全局唯一标识，通过TraceId，Eagleye处理日志时可以把一次前端请求在不同服务器记录的调用日志关联起来，重新组合成当时这个请求的调用链。理论上TraceID在一次请求中只应该被生成一次，并跟随请求传递至RPC调用经过的各个节点.</p>
+<pre><code class="language-java">// com.taobao.eagleeye;
+
+/**
+     * 获取全局唯一的Traceid
+     * @return
+     */
+    public static String getTraceId() {
+        RpcContext_inner ctx = RpcContext_inner.get();
+        return null == ctx ? null : ctx.traceId;
+    }
+</code></pre>
+<p><a name="k9Wld"></a></p>
+<h4 id="获取rpcid">获取rpcId</h4>
+<p>为了区别同一个调用链下多个网络调用的顺序和嵌套层次，EagleEye还需要传输和记录RpcId，RpcId用0.X1.X2.X3.....Xi来表示，Xi都是非负整数，根节点的RpcId固定从0开始，第一层网络调用的RpcId是0.X1，第二层的则为0.X1.X2，依次类推，通过RpcId，可以准确的还原出调用链上每次调用的层次关系和兄弟调用之间的先后顺序。</p>
+<pre><code class="language-java">    /**
+     * 获取当前rpc调用层次
+     * @return
+     */
+    public static String getRpcId() {
+        RpcContext_inner ctx = RpcContext_inner.get();
+        return null == ctx ? null : ctx.rpcId;
+    }
+</code></pre>
+<p><a name="Lrcx4"></a></p>
+<h4 id="获取userdata">获取userData</h4>
+<p>EagleEye日志中的UserData字段为业务自定义的数据，该字段包含了RPC层的业务数据，该数据分为两种： 1.本地数据：记录在本地日志中； 2.链路数据：记录在本地日志中，并会跟随调用链传递至下游。</p>
+<pre><code class="language-java">public static String getUserData(String key) {
+        RpcContext_inner ctx = RpcContext_inner.get();
+        return null != ctx ? ctx.getUserData(key) : null;
+}
+</code></pre>
+<p><a name="VdgAw"></a></p>
+<h1 id=""></h1>
+<p><a name="cZfas"></a></p>
+<h4 id="开启新的trace">开启新的trace</h4>
+<pre><code class="language-java">// com.taobao.eagleeye;
+
+/**
+     * 开启新的trace，该接口仅提供给最源头的前中间件或自己启动的定时程序调用，
+     * 支持配置 rpcId 来开启一个嵌套的调用链。使用该接口时，必须最后调用endTrace结束。
+     * @param traceId 全局唯一的id，如果传入的值为空或者null，系统会自动生成
+     * @param rpcId 额外指定 rpcId，如果为 &lt;code&gt;null&lt;/code&gt;，使用 {@link #ROOT_RPC_ID}
+     * @param traceName 用户自定义的入口标识值，不能为 &lt;code&gt;null&lt;/code&gt;，
+     *                 建议传入能够唯一标识入口的数据，例如用户访问网络的 http url
+     * @param rpcType EagleEye.TYPE_TRACE EagleEye.TYPE_CUSTOM_TRACE
+     * @param params 调用参数
+     * @since 1.2.6
+     */
+    public static void startTrace(String traceId, String rpcId, String traceName, int rpcType, Object... params) {
+        if (traceName == null) {
+            return;
+        }
+
+        traceId = EagleEyeCoreUtils.trim(traceId);
+
+        if (!EagleEyeCoreUtils.isValidTraceId(traceId)) {
+            traceId = TraceIdGenerator.generate();
+            rpcId = ROOT_RPC_ID;
+        } else if (!EagleEyeCoreUtils.isValidRpcId(rpcId)) {
+            rpcId = ROOT_RPC_ID;
+        }
+
+        RpcContext_inner ctx = RpcContext_inner.get();
+        if (ctx != null &amp;&amp; ctx.traceId != null) {
+            // 重复 startTrace 的检测
+            if (!ctx.traceId.equals(traceId) || !traceName.equals(ctx.traceName)) {
+                // 说明有潜在的埋点问题，先把前面那个调用链结束掉
+                selfLog(&quot;[WARN] duplicated startTrace detected, overrided &quot; + ctx.traceId +
+                        &quot; (&quot; + ctx.traceName + &quot;) to &quot; + traceId + &quot; (&quot; + traceName + &quot;)&quot;);
+                endTrace();
+            } else {
+                // traceId 和 traceName 都相同，说明是 EagleEyeFilter 和 tbsession 有重复埋点
+                return;
+            }
+        }
+
+        try {
+
+            ctx = new RpcContext_inner(traceId, rpcId);
+            RpcContext_inner.set(ctx);
+            ctx.startTrace(traceName, rpcType, params);
+        } catch (Throwable re) {
+            selfLog(&quot;[ERROR] startTrace&quot;, re);
+        }
+    }
+</code></pre>
+<p><a name="mSNtv"></a></p>
+<h4 id="结束一次跟踪">结束一次跟踪</h4>
+<pre><code class="language-java">// com.taobao.eagleeye;
+
+/**
+     * 结束一次跟踪，Threadlocal 变量会被清空，调用了 startTrace 及 startTrace4Top 的必须在finally或者最后调用该接口。
+     * @param resultCode
+     * @param type
+     * @since 1.2.0
+     * @deprecated 请使用 {@link #endTrace(String)}
+     */
+    public static void endTrace(String resultCode, int type) {
+        RpcContext_inner root = getRootCtx();
+        if (null == root) {
+            return;
+        }
+        root.setRpcType(type);
+        endTraceInner(root, resultCode);
+    }
+
+private static void endTraceInner(RpcContext_inner root, String resultCode) {
+        try {
+            root.endTrace0(resultCode);
+            commitRpcContext(root);
+        } catch (IllegalContextException ice) {
+            // quietly
+        } catch (Throwable re) {
+            selfLog(&quot;[ERROR] endTrace&quot;, re);
+        } finally {
+            clearRpcContext();
+        }
+    }
+</code></pre>
+<p><a name="AvE9a"></a></p>
+<h4 id="-2"></h4>
+<p><a name="MPbdg"></a></p>
+<h3 id="hsf调用时如何传递鹰眼信息">hsf调用时如何传递鹰眼信息</h3>
+<p>com.taobao.eagleeye.EagleEyeFilter: 获取<code>invocation</code>中的<code>RpcContext</code>，并更新当前线程的<code>RpcContext</code>.</p>
+<pre><code class="language-java">// com.taobao.hsf.plugins.eagleeye;
+
+@Order(250)
+public class EagleEyeServerFilter implements ServerFilter, BlockAwareFilter {
+
+
+    public ListenableFuture&lt;RPCResult&gt; invoke(InvocationHandler invocationHandler,
+                                              Invocation invocation) throws Throwable {
+        Object oldContext = EagleEye.getRpcContext();
+        try {
+            invocation.put(EAGLEEYE_EXECUTED_KEY, Boolean.TRUE);
+
+            handleEagleEyeServerRecv(invocation);
+
+            invocation.put(INVOCATION_EAGLEEYE_CONTEXT_KEY, logService.getRpcContext());
+            invocation.addContextAware(eagleEyeServerContextAware);
+
+            //把traceId,rpcId放到invocation的context里，打日志的时候把invocation.context打出来，不要把HSFRequest里的context打出来，内容太多了
+            invocation.put(EagleEyeConstants.EAGLEEYE_TRACE_ID_KEY, logService.getTraceId());
+            invocation.put(EagleEyeConstants.EAGLEEYE_RPC_ID_KEY, logService.getRpcId());
+
+            ListenableFuture&lt;RPCResult&gt; rpcFuture = invocationHandler.invoke(invocation);
+            return rpcFuture;
+        } finally {
+            EagleEye.setRpcContext(oldContext);
+        }
+    }
+
+
+//获取invocation中的hsfRequest
+private void handleEagleEyeServerRecv(Invocation invocation) {
+        final HSFRequest hsfRequest = invocation.getHsfRequest();
+        final String serviceUniqueName = hsfRequest.getTargetServiceUniqueName();
+        final String methodName = hsfRequest.getMethodName();
+        final String[] sig = hsfRequest.getMethodArgSigs();
+
+        String methodNameToLog = methodLogNameService.convertToLogName(invocation, methodName, sig,
+                hsfRequest.getMethodArgs());
+
+        Object rpcCtx = hsfRequest.getRequestProp(EagleEyeConstants.REQUEST_EAGLEEYE_CONTEXT);
+
+        if (Boolean.TRUE == invocation.get(IS_LOCAL_INVOKE_ATTRIBUTE_KEY) &amp;&amp; (rpcCtx instanceof Map)) {
+            Map&lt;String, String&gt; contextMap = (Map&lt;String, String&gt;) rpcCtx;
+            contextMap.put(EagleEye.ATTRIBUTE_KEY, EagleEye.exportAttribute());
+        }
+
+        logService.setRpcContext(rpcCtx);
+
+        logService.rpcServerRecv(serviceUniqueName, methodNameToLog, EagleEye.TYPE_HSF_SERVER, hsfRequest.getMethodArgs());
+
+        if (hsfRequest.getRequestProp(RemotingConstants.REQUEST_OF_MTOP_UNCENTER_FLAG) != null) {
+            try {
+                if ((Boolean) hsfRequest.getRequestProp(RemotingConstants.REQUEST_OF_MTOP_UNCENTER_FLAG)) {
+                    logService.remoteIp(env.getPubHost());
+                }
+            } catch (Exception e) {
+                logService.remoteIp(invocation.getPeerIP());
+            }
+        } else {
+            logService.remoteIp(invocation.getPeerIP());
+        }
+
+        //set consumer's container id
+        Object containerId = invocation.getRequestProp(HSFConstants.CONTAINER_ID);
+        if (containerId != null) {
+            logService.setContainerId((String) containerId);
+        }
+
+        Object httpEagleEyeContext = hsfRequest.getRequestProp(HttpHeaderKey.HTTP_EAGLEEYE_CONTEXT);
+        if (httpEagleEyeContext == null || !(httpEagleEyeContext instanceof Map))
+            return;
+
+        for (Map.Entry&lt;String, String&gt; entry : ((Map&lt;String, String&gt;) httpEagleEyeContext).entrySet()) {
+            logService.putUserData(entry.getKey(), entry.getValue());
+        }
+    }
+
+}
+</code></pre>
+<p><a name="nX410"></a></p>
+<h1 id="ali-dp">Ali-dp</h1>
+<p><a name="FKaoT"></a></p>
+<h2 id="如何使用">如何使用</h2>
+<p><a name="mKcUA"></a></p>
+<h3 id="pomxml引入依赖"><code>pom.xml</code>引入依赖</h3>
+<pre><code class="language-xml">&lt;dependency&gt;
+     &lt;groupId&gt;com.alibaba.nrep.dp&lt;/groupId&gt;
+     &lt;artifactId&gt;debug-platform-starter&lt;/artifactId&gt;
+     &lt;version&gt;${ali-dp-version}&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p><a name="LvPPk"></a></p>
+<h3 id="设置trace策略">设置trace策略</h3>
+<p>预发（<code>application-dev.properties</code>):</p>
+<pre><code class="language-properties"># 开启预发采集
+dev.trace.preEnable=true
+# 建议开启 开启HSF Provider端采集
+dev.trace.hsf.server=true
+# 建议开启 开启HSF Consumer采集
+dev.trace.hsf.client=true
+# 建议开启 开启Metaq采集
+dev.trace.metaq.enable=true
+# 建议开启 开启DPTrace采集采集
+dev.trace.dptrace.enable=true
+# 按需开启 开启HTTP采集采集，
+dev.trace.http.enable =false
+</code></pre>
+<p>线上(<code>application-prod.properties</code>):</p>
+<pre><code class="language-properties">#总控开关
+dev.trace.onlineEnable=true
+
+# 开启HSF Provider端采集
+dev.trace.hsf.server=true
+# 开启HSF Consumer采集
+dev.trace.hsf.client=true
+# 开启Metaq采集
+dev.trace.metaq.enable=true
+# 开启DPTrace采集采集
+dev.trace.dptrace.enable=true
+# 开启HTTP采集采集
+dev.trace.http.enable=true
+</code></pre>
+<p><a name="dMTG1"></a></p>
+<h3 id="查看日志是否启动">查看日志，是否启动</h3>
+<pre><code class="language-shell">&gt; cd {APP_NAME}/logs/middleware/adp
+&gt; ll
+total 89868
+-rw-rw-r-- 1 admin admin    16395 Nov 29 15:04 adp.log
+-rw-rw-r-- 1 admin admin 91995264 Dec  5 15:40 local-trace.log
+</code></pre>
+<p>查看adp.log :</p>
+<pre><code class="language-java">01 2021-11-24 19:27:47.349 INFO [main :FinTraceMainLogger] QUICK-MOCK ENABLE Aspect MODEL
+01 2021-11-24 19:27:48.995 INFO [main :FinTraceMainLogger] ============== ADP_TRACE_STARTER LOADING.... ===========
+01 2021-11-24 19:27:48.997 INFO [main :FinTraceMainLogger] Version:1.0.4.1  AppName:sgth-audit  IP:33.4.132.237
+01 2021-11-24 19:27:48.997 INFO [main :FinTraceMainLogger] ADP平台 链路查询:http://ali-dp.alibaba-inc.com/traceQuery?appName=sgth-audit&amp;ip=33.4.132.237&amp;env=online
+01 2021-11-24 19:27:48.997 INFO [main :FinTraceMainLogger] ADP平台 钉钉答疑:31928176 Doc:https://yuque.antfin-inc.com/youjun.myj/hm1fyg/ohf1la
+01 2021-11-24 19:27:49.001 INFO [main :FinTraceMainLogger] current env is online
+01 2021-11-24 19:27:49.001 INFO [main :FinTraceMainLogger] ADP-TRACE-STARTER enable true
+01 2021-11-24 19:27:49.016 INFO [main :FinTraceMainLogger] ADP-TRACE-STARTER print type: LOG
+01 2021-11-24 19:27:49.016 INFO [main :FinTraceMainLogger] ADP-TRACE-STARTER start success !!! enableServer:true enableClient:true metaqEnable:true tddlEnable:false httpEnable:false dpTraceEnable:true dtsEnable:false mockEnable:false version:1.0.4.1
+01 2021-11-24 19:27:49.020 INFO [main :FinTraceMainLogger] [INFO] ADP-TRACE-STARTER start PushController...
+01 2021-11-24 19:27:49.023 INFO [main :FinTraceMainLogger] AutoLoad DP_TRACE_CONTROL_HSF START...sgth-audit
+01 2021-11-24 19:27:49.034 INFO [main :FinTraceMainLogger] AutoLoad DP_TRACE_CONTROL_HSF SUCCESS.
+01 2021-11-24 19:27:49.211 INFO [main :FinTraceMainLogger] ADP-TRACE-STARTER metaq enable success.
+01 2021-11-24 19:27:49.215 INFO [main :FinTraceMainLogger] 加载情况 {&quot;commonExclude&quot;:&quot;&quot;,&quot;dptraceEnable&quot;:true,&quot;dptraceFrequency&quot;:1,&quot;dtsEnable&quot;:false,&quot;dtsFrequency&quot;:1,&quot;hsfClient&quot;:true,&quot;hsfExclude&quot;:&quot;&quot;,&quot;hsfExcludeOutput&quot;:&quot;&quot;,&quot;hsfFrequency&quot;:1,&quot;hsfServer&quot;:true,&quot;httpEnable&quot;:false,&quot;httpFrequency&quot;:1,&quot;httpPushBatchSize&quot;:20,&quot;httpPushMaxCapacity&quot;:200,&quot;httpPushSendPeriod&quot;:2,&quot;issEnable&quot;:false,&quot;logEnable&quot;:false,&quot;metaqEnable&quot;:true,&quot;metaqFrequency&quot;:1,&quot;mockEnable&quot;:false,&quot;notifyEnable&quot;:false,&quot;printType&quot;:&quot;LOG&quot;,&quot;tairEnable&quot;:false,&quot;tddlEnable&quot;:false,&quot;tddlFrequency&quot;:1}
+</code></pre>
+<p><a name="nVaTr"></a></p>
+<h2 id="如何启动">如何启动</h2>
+<p>spring-boot会自动扫描并加载<code>debug-platform-starter</code>的<code>com.alibaba.adp.TraceConfiguration</code>:<br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/startup.png" alt="startup.png" loading="lazy"><br /><code>TraceConfiguration</code>的操作如下：<br>
+<a name="a90h0"></a></p>
+<h3 id="加载traceproperties">加载<code>TraceProperties</code></h3>
+<p><code>TraceProperties</code>的许多参数我们在前面配置过了。</p>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+    @Bean
+    public TraceProperties dpTraceProperties() {
+        return new TraceProperties();
+    }
+</code></pre>
+<pre><code class="language-java">public class TraceProperties {
+
+    private Boolean blackServer;
+
+    /**
+     * Trace信息堆积最大数据量
+     */
+    private Integer traceContentMapMaxSize ;
+
+    /**
+     * Log信息堆积最大数据量
+     */
+    private Integer logContentMapMaxSize ;
+
+    /**
+     * 是否开启Log跟踪
+     */
+    private Boolean logEnable;
+
+    /**
+     * 日志采集级别 DEBUG,INFO,WARN,ERROR ,默认采集级别为WARN
+     */
+    private String logLevel;
+
+    /**
+     * 是否开启Notify跟踪
+     */
+    private Boolean notifyEnable;
+
+    /**
+     * 是否开启Log跟踪
+     */
+    private Boolean tairEnable;
+    /**
+     * 是否开启ISS跟踪
+     */
+    private Boolean issEnable;
+
+    /**
+     * HTTP
+     */
+
+    /**
+     * 是否开启sql跟踪
+     */
+    @Value(&quot;${dev.trace.http.enable:#{null}}&quot;)
+    private Boolean httpEnable;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.http.frequency:1}&quot;)
+    private Integer httpFrequency = 1;
+
+    /**
+     * DPTRACE
+     */
+
+    /**
+     * 是否开启
+     */
+    @Value(&quot;${dev.trace.dptrace.enable:#{null}}&quot;)
+    private Boolean dptraceEnable;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.dptrace.frequency:1}&quot;)
+    private Integer dptraceFrequency = 1;
+
+    /**
+     * TDDL
+     */
+
+    /**
+     * 是否开启sql跟踪
+     */
+    @Value(&quot;${dev.trace.tddl.enable:#{null}}&quot;)
+    private Boolean tddlEnable;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.tddl.frequency:1}&quot;)
+    private Integer tddlFrequency = 1;
+
+    /**
+     * 不打日志
+     */
+    @Value(&quot;${dev.trace.tddl.excludeType:#{null}}&quot;)
+    private String tddlExcludeType;
+
+    /**
+     * METAQ
+     */
+
+    /**
+     * 是否开启接收消息跟踪
+     */
+    @Value(&quot;${dev.trace.metaq.enable:#{null}}&quot;)
+    private Boolean metaqEnable;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.metaq.frequency:1}&quot;)
+    private Integer metaqFrequency = 1;
+
+    /**
+     * DTS
+     */
+
+    /**
+     * 是否开启接收消息跟踪
+     */
+    @Value(&quot;${dev.trace.dts.enable:#{null}}&quot;)
+    private Boolean dtsEnable;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.dts.frequency:1}&quot;)
+    private Integer dtsFrequency = 1;
+
+    /**
+     * HSF
+     */
+
+    /**
+     * 是否开启ServerFilter 默认值true
+     */
+    @Value(&quot;${dev.trace.hsf.server:#{null}}&quot;)
+    private Boolean hsfServer;
+
+    /**
+     * 是否开启ClientFilter 默认值false
+     */
+    @Value(&quot;${dev.trace.hsf.client:#{null}}&quot;)
+    private Boolean hsfClient;
+
+    /**
+     * 采样频率
+     * &lt;p&gt;计算公式为 1/frequency
+     * &lt;p&gt;设置1为 1/1 =100%
+     * &lt;p&gt;全部采集 设置 100 为 1/100 = 1% 采集
+     */
+    @Value(&quot;${dev.trace.hsf.frequency:1}&quot;)
+    private Integer hsfFrequency = 1;
+
+    /**
+     * 不打日志
+     */
+    @Value(&quot;${dev.trace.hsf.exclude:#{null}}&quot;)
+    private String hsfExclude;
+    /**
+     * 接口输出结果隐藏
+     */
+    @Value(&quot;${dev.trace.hsf.excludeOutput:#{null}}&quot;)
+    private String hsfExcludeOutput;
+
+    /**
+     * 通用
+     */
+    @Value(&quot;${dev.trace.printType:#{null}}&quot;)
+    private PrintType printType;
+
+    @Value(&quot;${dev.trace.dailyEnable:#{null}}&quot;)
+    private Boolean dailyEnable;
+
+    @Value(&quot;${dev.trace.preEnable:#{null}}&quot;)
+    private Boolean preEnable;
+
+    @Value(&quot;${dev.trace.onlineEnable:#{null}}&quot;)
+    private Boolean onlineEnable;
+
+    /**
+     * 排除接口 interfaceName#MethodName or interfaceName
+     */
+    @Value(&quot;${dev.trace.common.exclude:#{null}}&quot;)
+    private String commonExclude;
+
+    /**
+     * http推送batchSize
+     */
+    @Value(&quot;${dev.trace.http.push.batchSize:#{null}}&quot;)
+    private Integer httpPushBatchSize;
+
+    /**
+     * http推送batchSize
+     */
+    @Value(&quot;${dev.trace.http.push.sendPeriod:#{null}}&quot;)
+    private Integer httpPushSendPeriod;
+
+    /**
+     * http推送batchSize
+     */
+    @Value(&quot;${dev.trace.http.push.maxCapacity:#{null}}&quot;)
+    private Integer httpPushMaxCapacity;
+
+    @Value(&quot;${quick.mock.enable:#{null}}&quot;)
+    private Boolean mockEnable;
+}
+</code></pre>
+<p><a name="ukWTm"></a></p>
+<h3 id="init初始化操作">init()初始化操作</h3>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+
+@PostConstruct
+public void init() {
+        APP_NAME = AppUtil.appName(null);
+
+        logger.info(&quot;============== ADP_TRACE_STARTER LOADING.... ===========&quot;);
+        logger.info(String.format(&quot;Version:%s  AppName:%s  IP:%s&quot;, CURRENT_VERSION, APP_NAME, LOCAL_IP));
+        String hostUrl = String.format(ADP_HOST_URL, APP_NAME, LOCAL_IP, EnvUtil.getCurrentEnv());
+        logger.info(String.format(&quot;ADP平台 链路查询:%s &quot;, hostUrl));
+        logger.info(String.format(&quot;ADP平台 钉钉答疑:31928176 Doc:https://yuque.antfin-inc.com/youjun.myj/hm1fyg/ohf1la&quot;));
+
+        EnvUtil.setActiveProfiles(DiamondProfiles.load(false));
+
+        // 先获取当前环境的策略
+        globalEnable = enableByConfigAndEnv();
+        logger.info(&quot;ADP-TRACE-STARTER enable {}&quot;, globalEnable);
+
+        // 全局开关未开启，退出
+        if (!globalEnable) {
+            TraceStrategyManager.closeAll();
+            return;
+        }
+
+        if (EnvUtil.isDaily()) {
+            //日常环境默认开启
+            TraceStrategyManager.openAll();
+        } else {
+            //非日常环境默认关闭，等待远程控制
+            TraceStrategyManager.closeAll();
+        }
+        try {
+            TraceStrategyManager.adjustStrategy(traceProperties);
+        } catch (Throwable t) {
+            logger.error(&quot;ADP-TRACE-STARTER adjustStrategy fail!!&quot;);
+        }
+
+        if (StringUtils.equals(APP_NAME,&quot;unknow&quot;)) {
+            logger.error(&quot;APP-ERROR&quot;,
+                &quot;ADP-TRACE-STARTER start missing appName.Please config project.name or spring.application.name&quot;);
+        }
+        PushController.start();
+        initHsfControlClient();
+
+        ControlEventSender.sendControlEvent(EventType.START);
+        logger.info(String.format(&quot;加载情况 %s &quot;, JSON.toJSONString(TraceStrategyManager.currentTraceProperties())));
+        logger.info(&quot;==========================================================&quot;);
+        // 启动心跳发送线程
+        new Thread(metaqHeartThread).start();
+    }
+</code></pre>
+<p><a name="boTvS"></a></p>
+<h4 id="全局开关">全局开关</h4>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+
+// 先获取当前环境的策略
+globalEnable = enableByConfigAndEnv();
+logger.info(&quot;ADP-TRACE-STARTER enable {}&quot;, globalEnable);
+
+// 全局开关未开启，退出
+if (!globalEnable) {
+     TraceStrategyManager.closeAll();
+      return;
+}
+</code></pre>
+<p><a name="O3Bvk"></a></p>
+<h4 id="默认trace策略">默认trace策略</h4>
+<ol>
+<li>
+<p>日常环境默认开启所有trace策略, 非日常环境默认关闭所有trace策略</p>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+if (EnvUtil.isDaily()) {
+  //日常环境默认开启
+  TraceStrategyManager.openAll();
+} else {
+  //非日常环境默认关闭，等待远程控制
+  TraceStrategyManager.closeAll();
+}
+</code></pre>
+</li>
+</ol>
+<pre><code>```java
+// com.alibaba.fin.infrastructure.trace.processor.TraceStrategyManager
+public static void closeAll() {
+        HsfTraceStrategy.setEnableServer(false);
+        HsfTraceStrategy.setEnableClient(false);
+        MetaqTraceStrategy.setEnable(false);
+        TddlTraceStrategy.setEnable(false);
+        HttpTraceStrategy.setEnable(false);
+        DptraceTraceStrategy.setEnable(false);
+        DtsTraceStrategy.setEnable(false);
+        MockStrategy.setEnable(false);
+        IssTraceStrategy.setEnable(false);
+        LogTraceStrategy.setEnable(false);
+        NotifyTraceStrategy.setEnable(false);
+    }
+
+    public static void openAll() {
+        HsfTraceStrategy.setEnableServer(true);
+        HsfTraceStrategy.setEnableClient(true);
+        MetaqTraceStrategy.setEnable(true);
+        TddlTraceStrategy.setEnable(true);
+        HttpTraceStrategy.setEnable(true);
+        DptraceTraceStrategy.setEnable(true);
+        DtsTraceStrategy.setEnable(true);
+        MockStrategy.setEnable(true);
+        IssTraceStrategy.setEnable(true);
+        LogTraceStrategy.setEnable(true);
+        NotifyTraceStrategy.setEnable(true);
+    }
+</code></pre>
+<p><a name="bvfUl"></a></p>
+<h4 id="配置策略">配置策略</h4>
+<p>根据<code>traceProperties</code>设置trace策略：</p>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+
+try {
+     TraceStrategyManager.adjustStrategy(traceProperties);
+ } catch (Throwable t) {
+   logger.error(&quot;ADP-TRACE-STARTER adjustStrategy fail!!&quot;);
+}
+</code></pre>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.TraceStrategyManager
+
+public static void adjustStrategy(TraceProperties traceProperties) {
+
+        settingExclude(traceProperties);
+
+        settingFrequency(traceProperties);
+
+        settingEnable(traceProperties);
+
+        if (Objects.nonNull(traceProperties.getPrintType())) {
+            PrintTypeStrategy.setPrintType(traceProperties.getPrintType());
+        }
+
+        settingPushProperties(traceProperties);
+
+        settingMock(traceProperties);
+
+        logger.info(String.format(&quot;ADP-TRACE-STARTER print type: %s&quot;, PrintTypeStrategy.getPrintType().name()));
+
+        logger.info(&quot;ADP-TRACE-STARTER start success !!! &quot;
+                + &quot;enableServer:{} enableClient:{} metaqEnable:{} tddlEnable:{}&quot; +
+                &quot; httpEnable:{} dpTraceEnable:{} dtsEnable:{} mockEnable:{} version:{}&quot;,
+            HsfTraceStrategy.isEnableServer(), HsfTraceStrategy.isEnableClient(),
+            MetaqTraceStrategy.isEnable(), TddlTraceStrategy.isEnable(),
+            HttpTraceStrategy.isEnable(), DptraceTraceStrategy.isEnable(),
+            DtsTraceStrategy.isEnable(), MockStrategy.isEnable(), CURRENT_VERSION);
+    }
+</code></pre>
+<p>尤其要注意<code>settingMock(traceProperties)</code>会关闭线上环境的<code>HttpTraceStrategy</code>, 所以线上环境是查不到Http记录的。</p>
+<pre><code class="language-java">// com.alibaba.fin.infrastructure.trace.processor.TraceStrategyManager
+private static void settingMock(TraceProperties traceProperties) {
+        boolean mockEnable = false;
+        // 日常,及预发环境默认开启无需关闭
+        if (EnvUtil.isProd()) {
+            // 线上环境默认关闭
+            mockEnable = false;
+
+            // 线上环境强制关闭HTTP,相对而言http的应用广度不是那么多，避免因为特设兼容问题，导致线上HTTP异常。安全性还未达到线上使用的程度
+            HttpTraceStrategy.setEnable(false);
+
+            // 线上环境只支持本地文件的方式
+            PrintTypeStrategy.setPrintType(PrintType.LOG);
+        } else if (Objects.nonNull(traceProperties.getMockEnable())) {
+            mockEnable = traceProperties.getMockEnable();
+        } else {
+            mockEnable = EnvUtil.isDaily();
+        }
+
+        MockStrategy.setEnable(mockEnable);
+    }
+</code></pre>
+<p><a name="MxbBm"></a></p>
+<h4 id="启动日志推送">启动日志推送</h4>
+<pre><code class="language-java">// com.alibaba.adp.TraceConfiguration
+PushController.start();
+</code></pre>
+<p><code>PushController</code>会启动线程池，定时向ADP服务器推送<code>PushController.logRecords</code>中的日志：</p>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.push.PushController
+public static void start() {
+        logger.info(&quot;[INFO] ADP-TRACE-STARTER start PushController...&quot;);
+        SEND_THREAD_POOL.scheduleAtFixedRate(new IntervalPushTask(), 0, PushStrategy.getSendPeriod(), TimeUnit.SECONDS);
+        FUSE_THREAD_POOL.scheduleAtFixedRate(new ClearErrorTask(), 0, 1, TimeUnit.HOURS);
+        SEND_THREAD_POOL.submit(new LoopPushTask());
+    }
+</code></pre>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.push.PushController 
+public static synchronized void sendMessage() throws IOException {
+        Set&lt;LogRecord&gt; readyPush = new HashSet&lt;&gt;(50);
+        try {
+            if (PushController.logRecords.size() &gt; 0) {
+                HttpMessage message = new HttpMessage();
+                message.setHost(ADP_TRACE_HOST);
+                message.setPort(ADP_TRACE_PORT);
+
+                //写锁是为了在清理过程中阻止元素刚写完被误清掉，所以短暂禁止写入，这个并发点比争队尾或并发写的概率低很多
+                Lock writeLock = lock.writeLock();
+                writeLock.lock();
+                try {
+                    Set&lt;LogRecord&gt; values = PushController.logRecords.values();
+                    readyPush.addAll(values);
+                    LogRecord logRecord = values.stream().findFirst().get();
+                    logger.info(&quot;send Message {} traceId:{} {}&quot;, readyPush.size(),
+                        logRecord.getTraceId(), logRecord.getServiceType());
+                    PushController.logRecords.clear();
+                } finally {
+                    writeLock.unlock();
+                }
+                message.setContent(JSON.toJSONString(readyPush));
+                message.setUrlPath(ADP_TRACE_URL_PATH);
+
+                HttpSendUtils.sendHttpRequest(message);
+            }
+        } catch (Throwable e) {
+            if (ERROR_COUNT.addAndGet(1) &lt; MAX_ERROR) {
+                logger.error(&quot;ERROR ,SendMessage_ERROR {}&quot;, e.getMessage());
+            }else{
+                logger.warn(&quot;ERROR ,SendMessage_ERROR {}&quot;, e.getMessage());
+            }
+            if (readyPush.size() &gt; 0) {
+                readyPush.stream().parallel().forEach(LogRecord::logByMetaq);
+            }
+
+        }
+    }
+</code></pre>
+<p><a name="QGKS3"></a></p>
+<h4 id="hsf-mock客户端和心跳检测">hsf mock客户端和心跳检测</h4>
+<p>略</p>
+<p><a name="mef8H"></a></p>
+<h2 id="filter产生日志">Filter产生日志</h2>
+<p>PushController会定时向adp服务器发送日志(<code>PushController.logRecords</code>)，这些日志又是从如何生成的呢?</p>
+<ul>
+<li>处理http请求和hsf请求的时候。</li>
+<li>通过filter来拦截请求生成log，保存到<code>PushController.logRecords</code>。</li>
+</ul>
+<p><a name="bxy4R"></a></p>
+<h3 id="http-filter">http filter</h3>
+<p><code>ServletTraceFilter</code>会拦截http请求：</p>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.controller.ServletTraceFilter 
+
+@Override
+public void doFilter(ServletRequest req, ServletResponse res,
+                         FilterChain chain) throws IOException, ServletException {
+
+        if (!(req instanceof HttpServletRequest &amp;&amp; res instanceof HttpServletResponse)) {
+            chain.doFilter(req, res);
+            return;
+        }
+        if (!HttpTraceStrategy.checkPrint()) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        // multipart/form-data 暂时不支持的类型,文件上传存在兼容性问题待修复
+        if (StringUtils.contains(req.getContentType(), &quot;multipart/form-data&quot;)) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        HttpServletResponse response = (HttpServletResponse)res;
+        long startTime = System.currentTimeMillis();
+        HttpServletResponseCopier responseWrapper = new HttpServletResponseCopier(response);
+        LogRecord record = new LogRecord();
+        HttpInputContext context = new HttpInputContext();
+        initLogRecord((HttpServletRequest)req, response, record, context);
+
+        if (TraceStrategyManager.decideExcludeService(record.getServiceId(), &quot;&quot;)) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        try {
+            chain.doFilter(req, responseWrapper);
+            buildParamOutput(startTime, responseWrapper, record, context);
+        } catch (Throwable e) {
+            buildParamOutputExp(startTime, responseWrapper, record, context, e);
+            throw e;
+        } finally {
+            if (!TraceStrategyManager.decideExcludeService(record.getServiceId(), &quot;&quot;)) {
+                record.log();
+                EagleEyeHttpResponse eagleEyeHttpResponse = convertHttpResponse(response, record.getResponseCode());
+                EagleEyeRequestTracer.endTrace(eagleEyeHttpResponse);
+            }
+        }
+
+    }
+</code></pre>
+<p><a name="Oa9JM"></a></p>
+<h4 id="检查http-trace是否启动">检查http trace是否启动</h4>
+<p>一般线上环境http trace关闭，走到这里就结束了。</p>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.controller.ServletTraceFilter 
+
+if (!HttpTraceStrategy.checkPrint()) {
+     chain.doFilter(req, res);
+     return;
+ }
+</code></pre>
+<p><a name="n9q28"></a></p>
+<h4 id="初始化日志">初始化日志</h4>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.controller.ServletTraceFilter 
+
+LogRecord record = new LogRecord();
+HttpInputContext context = new HttpInputContext();
+initLogRecord((HttpServletRequest)req, response, record, context);
+</code></pre>
+<p><a name="FYkf2"></a></p>
+<h4 id="获取traceid并开启新的trace">获取traceid，并开启新的trace</h4>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.controller.ServletTraceFilter
+private void buildBaseParam(HttpServletRequest request, LogRecord record, HttpInputContext httpInput) {
+
+     // ...
+     if (StringUtils.isBlank(record.getTraceId())) {
+         // 尝试重新构建traceId信息
+         EagleEyeHttpRequest eagleEyeHttpRequest = convertHttpRequest(request);
+         String traceId = EagleEyeRequestTracer.getTraceId(eagleEyeHttpRequest,
+         eagleEyeHttpRequest.getRemoteIp(), false);
+         //开启追踪
+         EagleEye.startTrace(traceId, EagleEye.ROOT_RPC_ID, eagleEyeHttpRequest.getUrl(), EagleEye.TYPE_TRACE);
+                record.reSetTraceId();
+     }
+
+     //...
+    }
+</code></pre>
+<pre><code class="language-java">//com.taobao.eagleeye.EagleEyeRequestTracer#getTraceId
+
+/**
+     * 获取 TraceId。根据以下步骤：
+     * &lt;ol&gt;
+     * &lt;li&gt;从 ThreadLocal 获取&lt;/li&gt;
+     * &lt;li&gt;从 URL 参数中 获取&lt;/li&gt;
+     * &lt;li&gt;从 header 中 获取&lt;/li&gt;
+     * &lt;li&gt;如果上述都没有，则自动生成，如果 ip 不为 &lt;code&gt;null&lt;/code&gt;，则基于指定的 ip，
+     *     否则，使用本机 ip
+     * &lt;/li&gt;
+     * &lt;/ol&gt;
+     * @param httpRequest
+     * @param ip
+     * @return
+     */
+public static final String getTraceId(EagleEyeHttpRequest eagleEyeHttpRequest, String ip, boolean ignoreCurrentThreadLocal) {
+        String traceId = getThreadLocalTraceId();
+        if (!EagleEyeCoreUtils.isBlank(traceId) &amp;&amp; !ignoreCurrentThreadLocal) {
+            return traceId;
+        }
+
+        try {
+            // 检查 url 中的调用链配置，这种配置是很罕见的，因此要尽量保证性能
+            String queryString = eagleEyeHttpRequest.getQueryString();
+            traceId = getParamFromUrl(queryString, EAGLEEYE_TRACEID_PARAM_KEY);
+            if (EagleEyeCoreUtils.isValidTraceId(traceId)) {
+                return traceId;
+            }
+
+            // 检查 header 中的调用链配置
+            traceId = EagleEyeCoreUtils.trim(eagleEyeHttpRequest.getHeader(EAGLEEYE_TRACEID_HEADER_KEY));
+            if (EagleEyeCoreUtils.isValidTraceId(traceId)) {
+                return traceId;
+            }
+        } catch (Throwable t) {
+            // quietly
+        }
+
+        return TraceIdGenerator.generate(ip);
+    }
+</code></pre>
+<p><a name="OP3iM"></a></p>
+<h4 id="设置response-header">设置response header</h4>
+<pre><code class="language-java">private HttpInputContext initLogRecord(HttpServletRequest req, HttpServletResponse response, LogRecord record,
+                                           HttpInputContext context) {
+        try {
+            buildBaseParam(req, record, context);
+            response.addHeader(EagleEyeRequestTracer.EAGLEEYE_TRACEID_HEADER_KEY, EagleEye.getTraceId());
+            response.addHeader(EagleEyeRequestTracer.EAGLEEYE_RPCID_HEADER_KEY, EagleEye.getRpcId());
+            final RpcContext_inner rpcContext = EagleEye.getRpcContext();
+            if(Objects.nonNull(rpcContext)) {
+                response.addHeader(EagleEyeRequestTracer.EAGLEEYE_USERDATA_HEADER_KEY,
+                    rpcContext.exportPrintableUserData());
+            }
+            response.addHeader(&quot;DP&quot;, String.format(DP_URL, EagleEye.getTraceId(), getCurrentEnv()));
+            return context;
+        } catch (Exception e) {
+            if (errorLogIndex &lt; 10000) {
+                logger.warn(&quot;initLogRecord Exception&quot;, e);
+            } else {
+                errorLogIndex++;
+                logger.warn(&quot;initLogRecord Exception&quot;);
+            }
+
+            return new HttpInputContext();
+        }
+    }
+</code></pre>
+<p><a name="Aco0m"></a></p>
+<h4 id="保存日志并关闭trace">保存日志并关闭trace</h4>
+<p>日志保存：</p>
+<ul>
+<li>保存一份在本地：<code>logger.debug</code></li>
+<li>加入<code>PushController</code>的record，等待定时推送。</li>
+</ul>
+<pre><code class="language-java"> if (!TraceStrategyManager.decideExcludeService(record.getServiceId(), &quot;&quot;)) {
+    record.log();
+    EagleEyeHttpResponse eagleEyeHttpResponse = convertHttpResponse(response, record.getResponseCode());
+    EagleEyeRequestTracer.endTrace(eagleEyeHttpResponse);
+}
+</code></pre>
+<pre><code class="language-java">// com.alibaba.fin.infrastructure.trace.LogRecord
+ public void log() {
+        try {
+            this.time = String.valueOf(System.currentTimeMillis());
+            logger.debug(&quot;print trace log {} &quot;, this);
+            prune();
+            // 时间再打印的时候再设置
+            PrintFactory.getPrinter().print(this);
+        } catch (Exception e) {
+            logger.debug(&quot;log exception {}  {}&quot;, toString(), e.getMessage());
+        }
+}
+
+
+// com.alibaba.fin.infrastructure.trace.print.HttpPrintStrategy
+public class HttpPrintStrategy implements PrintStrategy {
+    @Override
+    public boolean print(LogRecord logRecord) {
+        return PushController.putRecord(logRecord);
+    }
+}
+</code></pre>
+<p><a name="QP2HH"></a></p>
+<h2 id="rpc-filter">rpc filter</h2>
+<p>采用SPI的方式提供<code>RPCFilter</code>实现类: <br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/ali-dp/RPCFilter.png" alt="RPCFilter.png" loading="lazy"></p>
+<p><code>HsfServerTraceFilter</code>和<code>HsfClientTraceFilter</code>都继承<code>AbstractHsfTraceFilter</code>抽象类（模板）</p>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.hsf.AbstractHsfTraceFilter
+    public ListenableFuture&lt;RPCResult&gt; invoke(InvocationHandler nextHandler, Invocation invocation) throws Throwable {
+        try {
+            return nextHandler.invoke(invocation);
+        } catch (Exception exception) {
+            printLog(invocation, exception, true);
+            throw exception;
+        }
+    }
+
+    public void onResponse(Invocation invocation, RPCResult rpcResult) {
+        Object responseObject = null;
+        if (rpcResult != null) {
+            responseObject = rpcResult.getAppResponse();
+        }
+        printLog(invocation, responseObject, false);
+    }
+</code></pre>
+<p>两者的区别在于<code>HsfTraceStrategy</code>策略的参数不同：</p>
+<pre><code class="language-java">//com.alibaba.fin.infrastructure.trace.processor.hsf.HsfClientTraceFilter   
+@Override
+protected boolean isPrintTrace(String serviceName, String methodName) {
+        String logStrategy = HsfTraceStrategy.get(serviceName, methodName);
+        if (HsfTraceStrategy.isEnableClient() &amp;&amp; !HsfTraceStrategy.EXCLUDE.equals(logStrategy)) {
+            return true;
+        }
+        return false;
+    }
+
+//com.alibaba.fin.infrastructure.trace.processor.hsf.HsfServerTraceFilter
+@Override
+protected boolean isPrintTrace(String serviceName, String methodName) {
+        String logStrategy = HsfTraceStrategy.get(serviceName, methodName);
+        if (HsfTraceStrategy.isEnableServer() &amp;&amp; !HsfTraceStrategy.EXCLUDE.equals(logStrategy)) {
+            return true;
+        }
+        return false;
+    }
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E7%9B%B8%E5%85%B3java%E5%9F%BA%E7%A1%80">相关Java基础</a>
+<ul>
+<li><a href="#spring-boot-starter">spring boot starter</a></li>
+<li><a href="#spi">spi</a></li>
+</ul>
+</li>
+<li><a href="#%E7%9B%B8%E5%85%B3%E9%98%BF%E9%87%8C%E4%B8%AD%E9%97%B4%E4%BB%B6">相关阿里中间件</a>
+<ul>
+<li><a href="#hsf">HSF</a>
+<ul>
+<li><a href="#%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84">整体架构</a></li>
+<li><a href="#%E4%BD%BF%E7%94%A8">使用</a>
+<ul>
+<li><a href="#provider">Provider</a></li>
+<li><a href="#consumer">Consumer</a></li>
+</ul>
+</li>
+<li><a href="#rpcfilter">RPCFilter</a></li>
+</ul>
+</li>
+<li><a href="#%E9%B9%B0%E7%9C%BC%E7%B3%BB%E7%BB%9F">鹰眼系统</a>
+<ul>
+<li><a href="#%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84-2">整体架构</a></li>
+<li><a href="#eagleeyejava">EagleEye.java</a>
+<ul>
+<li><a href="#%E6%97%A5%E5%BF%97%E5%9C%B0%E5%9D%80">日志地址</a></li>
+<li><a href="#%E5%BD%93%E5%89%8D%E7%BA%BF%E7%A8%8B%E5%85%B3%E8%81%94%E7%9A%84rpc%E8%B0%83%E7%94%A8%E4%B8%8A%E4%B8%8B%E6%96%87">当前线程关联的RPC调用上下文</a></li>
+<li><a href="#%E8%8E%B7%E5%8F%96traceid">获取traceId</a></li>
+<li><a href="#%E8%8E%B7%E5%8F%96rpcid">获取rpcId</a></li>
+<li><a href="#%E8%8E%B7%E5%8F%96userdata">获取userData</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<ul>
+<li>
+<ul>
+<li>
+<ul>
+<li><a href="#%E5%BC%80%E5%90%AF%E6%96%B0%E7%9A%84trace">开启新的trace</a></li>
+<li><a href="#%E7%BB%93%E6%9D%9F%E4%B8%80%E6%AC%A1%E8%B7%9F%E8%B8%AA">结束一次跟踪</a></li>
+<li></li>
+</ul>
+</li>
+<li><a href="#hsf%E8%B0%83%E7%94%A8%E6%97%B6%E5%A6%82%E4%BD%95%E4%BC%A0%E9%80%92%E9%B9%B0%E7%9C%BC%E4%BF%A1%E6%81%AF">hsf调用时如何传递鹰眼信息</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#ali-dp">Ali-dp</a>
+<ul>
+<li><a href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8">如何使用</a>
+<ul>
+<li><a href="#pomxml%E5%BC%95%E5%85%A5%E4%BE%9D%E8%B5%96"><code>pom.xml</code>引入依赖</a></li>
+<li><a href="#%E8%AE%BE%E7%BD%AEtrace%E7%AD%96%E7%95%A5">设置trace策略</a></li>
+<li><a href="#%E6%9F%A5%E7%9C%8B%E6%97%A5%E5%BF%97%E6%98%AF%E5%90%A6%E5%90%AF%E5%8A%A8">查看日志，是否启动</a></li>
+</ul>
+</li>
+<li><a href="#%E5%A6%82%E4%BD%95%E5%90%AF%E5%8A%A8">如何启动</a>
+<ul>
+<li><a href="#%E5%8A%A0%E8%BD%BDtraceproperties">加载<code>TraceProperties</code></a></li>
+<li><a href="#init%E5%88%9D%E5%A7%8B%E5%8C%96%E6%93%8D%E4%BD%9C">init()初始化操作</a>
+<ul>
+<li><a href="#%E5%85%A8%E5%B1%80%E5%BC%80%E5%85%B3">全局开关</a></li>
+<li><a href="#%E9%BB%98%E8%AE%A4trace%E7%AD%96%E7%95%A5">默认trace策略</a></li>
+<li><a href="#%E9%85%8D%E7%BD%AE%E7%AD%96%E7%95%A5">配置策略</a></li>
+<li><a href="#%E5%90%AF%E5%8A%A8%E6%97%A5%E5%BF%97%E6%8E%A8%E9%80%81">启动日志推送</a></li>
+<li><a href="#hsf-mock%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%92%8C%E5%BF%83%E8%B7%B3%E6%A3%80%E6%B5%8B">hsf mock客户端和心跳检测</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#filter%E4%BA%A7%E7%94%9F%E6%97%A5%E5%BF%97">Filter产生日志</a>
+<ul>
+<li><a href="#http-filter">http filter</a>
+<ul>
+<li><a href="#%E6%A3%80%E6%9F%A5http-trace%E6%98%AF%E5%90%A6%E5%90%AF%E5%8A%A8">检查http trace是否启动</a></li>
+<li><a href="#%E5%88%9D%E5%A7%8B%E5%8C%96%E6%97%A5%E5%BF%97">初始化日志</a></li>
+<li><a href="#%E8%8E%B7%E5%8F%96traceid%E5%B9%B6%E5%BC%80%E5%90%AF%E6%96%B0%E7%9A%84trace">获取traceid，并开启新的trace</a></li>
+<li><a href="#%E8%AE%BE%E7%BD%AEresponse-header">设置response header</a></li>
+<li><a href="#%E4%BF%9D%E5%AD%98%E6%97%A5%E5%BF%97%E5%B9%B6%E5%85%B3%E9%97%ADtrace">保存日志并关闭trace</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#rpc-filter">rpc filter</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/apache-log4j2-yuan-cheng-dai-ma-zhi-xing-lou-dong/">
+              <h3 class="post-title">
+                Apache Log4j2 远程代码执行漏洞
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

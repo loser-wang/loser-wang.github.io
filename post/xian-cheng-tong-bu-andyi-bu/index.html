@@ -1,0 +1,635 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>线程同步&amp;异步 | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="线程同步&amp;异步 | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="同步&amp;异步
+1. 同步等待
+1.1 什么是保护性暂停
+
+In concurrent programming, guarded suspension is a software design pattern for managing ..." />
+    <meta name="keywords" content="java基础" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              线程同步&amp;异步
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-08-09
+              </span>
+              <span>
+                9 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/Q99GqzLbM/" class="post-tag">
+                  # java基础
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h1 id="同步异步">同步&amp;异步</h1>
+<h2 id="1-同步等待">1. 同步等待</h2>
+<h3 id="11-什么是保护性暂停">1.1 什么是保护性暂停</h3>
+<blockquote>
+<p>In concurrent programming, <strong>guarded suspension</strong> is a software design pattern for managing operations that require both <strong>a lock to be acquired and a precondition to be satisfied</strong> before the operation can be executed. The guarded suspension pattern is typically applied to method calls in object-oriented programs, and involves suspending the method call, and the calling thread, until the precondition (acting as a guard) is satisfied.</p>
+<p>—— wikipedia</p>
+</blockquote>
+<p>保护性暂停模式是让一个线程等待另一个线程的结果。</p>
+<p>举个例子说明：现在有两个线程，Thread1负责写入结果，Thread2负责读取结果。</p>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/%E5%90%8C%E6%AD%A5.svg" alt="同步" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        //公共变量
+        AtomicReference&lt;Integer&gt; response = new AtomicReference&lt;&gt;(null);
+
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            response.set(1);
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            System.out.println(response.get());
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+
+}
+</code></pre>
+<p>按照上面的代码，两个线程独立执行，thread2能否获取response的值全靠缘分。</p>
+<p>既然要控制先后顺序，自然就要使用wait和notify进行同步(先忽略join、future、CountdownLatch等同步工具）</p>
+<pre><code>import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        //公共变量
+        AtomicReference&lt;Integer&gt; response = new AtomicReference&lt;&gt;(null);
+
+        Thread thread1 = new Thread(()-&gt;{
+                System.out.println(&quot;thread1 before set .....&quot;);
+                synchronized(response) {
+                    response.set(1);
+                    response.notify();
+                }
+
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+                System.out.println(&quot;thread2 before get .....&quot;);
+                synchronized(response) {
+                    //如果已有response直接获取，否则阻塞
+                    if (response.get() == null){
+                        try {
+                            response.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    System.out.println(response.get());
+
+                }
+
+                System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+
+}
+</code></pre>
+<p>为了代码的简洁和易用，我们将同步逻辑封装到一个对象中，就实现了一个简易的保护性暂停对象：</p>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/%E4%BF%9D%E6%8A%A4%E6%80%A7%E6%9A%82%E5%81%9C.svg" alt="保护性暂停" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.concurrent.atomic.AtomicReference;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+
+        GuardObject guardObject = new GuardObject();
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            guardObject.setObj(1);
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            try {
+                System.out.println(guardObject.getObj());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+   static class GuardObject{
+        private Integer response;
+
+        public synchronized int getObj() throws InterruptedException {
+            if(response == null){
+                wait();
+            }
+            return response;
+        }
+
+        public synchronized void setObj(Integer value){
+            response = value;
+            notify();
+        }
+    }
+}
+</code></pre>
+<p>JDK中的thread.join、FutureTask都是用保护性暂停的设计模式来实现的。</p>
+<h3 id="12-futuretask">1.2 FutureTask</h3>
+<figure data-type="image" tabindex="3"><img src="" alt="" loading="lazy"></figure>
+<ol>
+<li>入口： <code>excutor.submit(callable)</code></li>
+</ol>
+<figure data-type="image" tabindex="4"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/excutor.png" alt="excutor" loading="lazy"></figure>
+<ol start="2">
+<li>生成<code>RunnableFuture</code>， 加入Worker。线程池会把<code>Callable</code>对象包装进 <code>RunnableFuture</code>。 <code>RunnableFuture</code>既是<code>Future</code>又是<code>Runnable</code>。然后执行该</li>
+</ol>
+<pre><code class="language-java">// java.util.concurrent.AbstractExecutorService
+
+/**
+* @throws RejectedExecutionException {@inheritDoc}
+* @throws NullPointerException       {@inheritDoc}
+*/
+public &lt;T&gt; Future&lt;T&gt; submit(Callable&lt;T&gt; task) {
+    if (task == null) throw new NullPointerException();
+    RunnableFuture&lt;T&gt; ftask = newTaskFor(task);
+    execute(ftask);
+    return ftask;
+} 
+
+
+protected &lt;T&gt; RunnableFuture&lt;T&gt; newTaskFor(Callable&lt;T&gt; callable) {
+    return new FutureTask&lt;T&gt;(callable);
+}
+</code></pre>
+<ol start="3">
+<li>工作线程调用 <code>FuturerTask</code>的run方法。</li>
+</ol>
+<pre><code class="language-java">// java.util.concurrent.ThreadPoolExecutor#addWorker   
+    final void runWorker(Worker w) {
+        Thread wt = Thread.currentThread();
+        Runnable task = w.firstTask;
+        w.firstTask = null;
+        w.unlock(); // allow interrupts
+        boolean completedAbruptly = true;
+        try {
+            while (task != null || (task = getTask()) != null) {
+                w.lock();
+                // If pool is stopping, ensure thread is interrupted;
+                // if not, ensure thread is not interrupted.  This
+                // requires a recheck in second case to deal with
+                // shutdownNow race while clearing interrupt
+                if ((runStateAtLeast(ctl.get(), STOP) ||
+                     (Thread.interrupted() &amp;&amp;
+                      runStateAtLeast(ctl.get(), STOP))) &amp;&amp;
+                    !wt.isInterrupted())
+                    wt.interrupt();
+                try {
+                    beforeExecute(wt, task);
+                    Throwable thrown = null;
+                    try {
+                        task.run();
+                    } catch (RuntimeException x) {
+                        thrown = x; throw x;
+                    } catch (Error x) {
+                        thrown = x; throw x;
+                    } catch (Throwable x) {
+                        thrown = x; throw new Error(x);
+                    } finally {
+                        afterExecute(task, thrown);
+                    }
+                } finally {
+                    task = null;
+                    w.completedTasks++;
+                    w.unlock();
+                }
+            }
+            completedAbruptly = false;
+        } finally {
+            processWorkerExit(w, completedAbruptly);
+        }
+    }
+</code></pre>
+<ol start="4">
+<li>Future调用get, 如果没有返回值(<code>outcome</code>变量)，会将当前线程封装进WaitNode，并调用<code>UNSAFE.compareAndSwapObject(this, waitersOffset,q.next = waiters, q)</code>存入waiters（头插法）, 然后调用<code>LockSupport.unpark</code>阻塞当前线程。</li>
+</ol>
+<pre><code class="language-java">//java.util.concurrent.FutureTask
+	public V get() throws InterruptedException, ExecutionException {
+        int s = state;
+        if (s &lt;= COMPLETING)
+            s = awaitDone(false, 0L);
+        return report(s);
+	}
+
+
+    /**
+     * Returns result or throws exception for completed task.
+     *
+     * @param s completed state value
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private V report(int s) throws ExecutionException {
+        Object x = outcome;
+        if (s == NORMAL)
+            return (V)x;
+        if (s &gt;= CANCELLED)
+            throw new CancellationException();
+        throw new ExecutionException((Throwable)x);
+    }
+
+
+    /**
+     * Awaits completion or aborts on interrupt or timeout.
+     *
+     * @param timed true if use timed waits
+     * @param nanos time to wait, if timed
+     * @return state upon completion
+     */
+    private int awaitDone(boolean timed, long nanos)
+        throws InterruptedException {
+        final long deadline = timed ? System.nanoTime() + nanos : 0L;
+        WaitNode q = null;
+        boolean queued = false;
+        for (;;) {
+            if (Thread.interrupted()) {
+                removeWaiter(q);
+                throw new InterruptedException();
+            }
+
+            int s = state;
+            if (s &gt; COMPLETING) {
+                if (q != null)
+                    q.thread = null;
+                return s;
+            }
+            else if (s == COMPLETING) // cannot time out yet
+                Thread.yield();
+            else if (q == null)
+                q = new WaitNode();
+            else if (!queued)
+                queued = UNSAFE.compareAndSwapObject(this, waitersOffset,
+                                                     q.next = waiters, q);
+            else if (timed) {
+                nanos = deadline - System.nanoTime();
+                if (nanos &lt;= 0L) {
+                    removeWaiter(q);
+                    return state;
+                }
+                LockSupport.parkNanos(this, nanos);
+            }
+            else
+                LockSupport.park(this);
+        }
+    }
+</code></pre>
+<ol start="5">
+<li><code>FuturerTask</code>的run方法执行完毕，通过<code>set(result)</code>将结果赋值给<code>outcome</code>, 并激活<code>waiters</code>中所有的阻塞</li>
+</ol>
+<pre><code class="language-java">//java.util.concurrent.FutureTask   
+public void run() {
+        if (state != NEW ||
+            !UNSAFE.compareAndSwapObject(this, runnerOffset,
+                                         null, Thread.currentThread()))
+            return;
+        try {
+            Callable&lt;V&gt; c = callable;
+            if (c != null &amp;&amp; state == NEW) {
+                V result;
+                boolean ran;
+                try {
+                    result = c.call();
+                    ran = true;
+                } catch (Throwable ex) {
+                    result = null;
+                    ran = false;
+                    setException(ex);
+                }
+                if (ran)
+                    set(result);
+            }
+        } finally {
+            // runner must be non-null until state is settled to
+            // prevent concurrent calls to run()
+            runner = null;
+            // state must be re-read after nulling runner to prevent
+            // leaked interrupts
+            int s = state;
+            if (s &gt;= INTERRUPTING)
+                handlePossibleCancellationInterrupt(s);
+        }
+    }
+
+
+ protected void set(V v) {
+        if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
+            outcome = v;
+            UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state
+            finishCompletion();
+        }
+ }
+
+    /**
+     * Removes and signals all waiting threads, invokes done(), and
+     * nulls out callable.
+     */
+    private void finishCompletion() {
+        // assert state &gt; COMPLETING;
+        for (WaitNode q; (q = waiters) != null;) {
+            if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) {
+                for (;;) {
+                    Thread t = q.thread;
+                    if (t != null) {
+                        q.thread = null;
+                        LockSupport.unpark(t);
+                    }
+                    WaitNode next = q.next;
+                    if (next == null)
+                        break;
+                    q.next = null; // unlink to help gc
+                    q = next;
+                }
+                break;
+            }
+        }
+
+        done();
+
+        callable = null;        // to reduce footprint
+    }
+</code></pre>
+<h2 id="2-异步处理">2. 异步处理</h2>
+<p>FutureTask是一种进程等待另一个进程执行结束(同步), 但有时候我们需要的是异步操作，又该如何设计呢？通过注册+回调机制来实现。</p>
+<figure data-type="image" tabindex="5"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/sync%26async/FutureAsync.svg" alt="FutureAsync" loading="lazy"></figure>
+<pre><code class="language-java">import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+
+        FutureAsync&lt;Integer&gt; future = new FutureAsync&lt;&gt;();
+
+        Thread thread1 = new Thread(()-&gt;{
+            System.out.println(&quot;thread1 before set .....&quot;);
+            try {
+                Thread.sleep(1000);
+                future.fireSuccess(1);
+            } catch (InterruptedException e) {
+               future.fireFailure();
+            }
+
+            System.out.println(&quot;thread1 after set .....&quot;);
+
+        });
+
+        Thread thread2 = new Thread(()-&gt;{
+            System.out.println(&quot;thread2 before get .....&quot;);
+            future.addListener(new FutureCallback() {
+                   @Override
+                   public void onSuccess(Object value) {
+                       System.out.println(String.valueOf(value));
+                   }
+
+                   @Override
+                   public void onFailure() {
+                       System.out.println(&quot;error&quot;);
+                   }
+            });
+
+            System.out.println(&quot;thread2 after get .....&quot;);
+        });
+
+        thread1.start();
+        thread2.start();
+
+    }
+
+    static class FutureAsync&lt;T&gt;{
+       List&lt;FutureCallback&gt; callbacks = new ArrayList&lt;&gt;();
+
+       void addListener(FutureCallback callback){
+           callbacks.add(callback);
+       }
+
+       void fireSuccess(T value){
+           callbacks.stream().forEach((callback)-&gt;{callback.onSuccess(value);});
+       }
+        void fireFailure(){
+            callbacks.stream().forEach((callback)-&gt;{callback.onFailure();});
+        }
+    }
+
+    interface FutureCallback&lt;T&gt;{
+        void  onSuccess(T value);
+        void onFailure();
+    }
+}
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E5%90%8C%E6%AD%A5%E5%BC%82%E6%AD%A5">同步&amp;异步</a>
+<ul>
+<li><a href="#1-%E5%90%8C%E6%AD%A5%E7%AD%89%E5%BE%85">1. 同步等待</a>
+<ul>
+<li><a href="#11-%E4%BB%80%E4%B9%88%E6%98%AF%E4%BF%9D%E6%8A%A4%E6%80%A7%E6%9A%82%E5%81%9C">1.1 什么是保护性暂停</a></li>
+<li><a href="#12-futuretask">1.2 FutureTask</a></li>
+</ul>
+</li>
+<li><a href="#2-%E5%BC%82%E6%AD%A5%E5%A4%84%E7%90%86">2. 异步处理</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/kafka-metrics-ji-zhi/">
+              <h3 class="post-title">
+                Kafka Metrics机制
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

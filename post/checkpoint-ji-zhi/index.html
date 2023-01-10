@@ -1,0 +1,257 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>checkpoint机制 | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="checkpoint机制 | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="checkpoint
+如果系统每次收到写入请求后，等待数据完全写入持久化存储再返回结果，这样数据丢失的可能性大大减少，但是一般持久化操作都是磁盘IO操作(甚至网络IO操作），处理的耗时比较长，这样读写的效率就会很低。（write throu..." />
+    <meta name="keywords" content="分布式" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              checkpoint机制
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-07-01
+              </span>
+              <span>
+                8 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/YpWtC30aC/" class="post-tag">
+                  # 分布式
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/logo_checkpoint.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h2 id="checkpoint">checkpoint</h2>
+<p>如果系统每次收到写入请求后，等待数据完全写入持久化存储再返回结果，这样数据丢失的可能性大大减少，但是一般持久化操作都是磁盘IO操作(甚至网络IO操作），处理的耗时比较长，这样读写的效率就会很低。<font color='red'><strong>（write through)</strong></font></p>
+<p>为了保证读写的效率，一般我们都会通过异步的方式来写数据，即先把数据写入内存，返回请求结果，然后再将数据异步写入。但是如果异步写入之前，系统宕机，会导致内存中的数据丢失。<font color='red'><strong>(write back)</strong></font></p>
+<p>当系统出现故障重启后，通常要对前面的操作进行<strong>replay</strong>。但是从头开始代价太高了，所以通过checkpoint来减少进行<strong>replay</strong>的操作数。<strong>checkpiont机制</strong>保证在某一时刻，系统运行所在的易失性存储数据与持久化存储的数据保持完全同步，当系统出现故障进行重启的时候，从这一点开始恢复（<strong>replay</strong>)，从而保证 <strong>At-Least</strong> 语义.</p>
+<p>接下来总结一下我遇到的使用checkpoint的工具（后续遇到再不断增加)。</p>
+<h2 id="数据库checkpoint">数据库checkpoint</h2>
+<p>可以数据库故障恢复与检查点来学习checkpoint机制, 以下内容copy from 《数据库系统基础讲义》<br />事务对数据可进行操作时：先写运行日志；写成功后，在与数据库缓冲区进行信息交换。<br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka%E9%AB%98%E6%B0%B4%E4%BD%8D/hw/%E6%95%B0%E6%8D%AE%E5%BA%931.png" alt="数据保存" loading="lazy"><br /></p>
+<p>如果发生<strong>数据库系统故障</strong>可通过运行日志来恢复。根据运行日志记录的事物操作顺序重做事务（当事务发生故障时已正确结束）或撤销事务（当事物在发生故障时未结束）。<br />但是故障恢复是需要时间的。运行日志保存了若干天的记录，当发生系统故障时应从哪一点开始恢复呢？<br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka%E9%AB%98%E6%B0%B4%E4%BD%8D/hw/%E6%95%B0%E6%8D%AE%E5%BA%932.png" alt="故障点" loading="lazy"><br />DBMS在运行日志中定期的设置和更新检查点。检查点是这样的时刻：在该时刻，DBMS强制使内存DB Buffer中的内容与DB中的内容保持一致，即将DB Buffer中更新的所有内容写回DB中。即在检查点之前内存中数据与介质中数据是保持一致的。<br />所以系统故障的恢复：</p>
+<p>- 检查点之前结束的事物不需要恢复（已经写入DB)</p>
+<p>- 检查点之后结束或者正在发生的事务需要依据运行日志进行恢复(不能确定是否写回DB）：<strong>故障点结束前结束的重做，故障时刻未结束的撤销。=&gt;重做在kafka中的一种形式为：Follower根据hw截断，并重新fetch</strong></p>
+<p><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka%E9%AB%98%E6%B0%B4%E4%BD%8D/hw/%E6%95%B0%E6%8D%AE%E5%BA%933.png" alt="checkpoint" loading="lazy"><br />而对<strong>介质故障</strong>对恢复通过备份实现的。在某一时刻，对数据库在其他介质存储上产生的另一份等同记录。当发生介质故障时，用副本替换被破环的数据库。由于介质恢复影响全面，在用副本恢复后还需要依据运行日志进行恢复。<br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka%E9%AB%98%E6%B0%B4%E4%BD%8D/hw/%E6%95%B0%E6%8D%AE%E5%BA%934.png" alt="backup" loading="lazy"><br />通过转储点来确定备份的时刻，转储点的设置有以下注意点:</p>
+<p>- 备份转储周期与运行日志的大小密切相关，应注意防止衔接不畅而引起的漏洞。</p>
+<p>- 过频，会影响系统工作效率;过疏，会造成运行日志过大，也影响系统运行性能。</p>
+<p><br /><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka%E9%AB%98%E6%B0%B4%E4%BD%8D/hw/%E6%95%B0%E6%8D%AE%E5%BA%935.png" alt="转储点" loading="lazy"></p>
+<h2 id="kafka-checkpoint">Kafka checkpoint</h2>
+<p>Kafka的根目录下有四个检查点文件：</p>
+<ul>
+<li>replication-offset-checkpoint：对应HW，有定时任务刷写，由broker端参数 replica.high.watermark.checkpoint.interval.ms来配置</li>
+<li>recovery-point-offset-checkpoint：对应LEO，有定时任务刷写，由broker端参数 replica.flush.offset.checkpoint.interval.ms 来配置</li>
+<li>log-start-offset-checkpoint: 对应LogStartOffset,有定时任务刷写，由broker端参数 log.flush.start.offset.checkpoint.interval.ms 来配置</li>
+<li>cleaner-offset-checkpoint: 清理检查点文件，用来记录每个主题的每个分区已清理的偏移量。</li>
+</ul>
+<p><a href="https://stackoverflow.com/questions/35407090/explain-replication-offset-checkpoint-and-recovery-point-offset-in-kafka">StackOverFlow</a>上从checkpiont机制的角度来进行解释：</p>
+<ul>
+<li>recovery-point-offset-checkpoint is the internal broker log where Kafka tracks which messages (from-to offset) were successfully checkpointed to disk. 即 recovery-point-offset-checkpoint 表示成功<strong>checkpoint到磁盘</strong>的偏移量，重启后需要从这一点恢复，将后面的消息截断。</li>
+<li>replication-offset-checkpoint is the internal broker log where Kafka tracks which messages (from-to offset) were successfully replicated to other brokers. 即 replication-offset-checkpoint 表示成功<strong>checkpoint到其他broker上</strong>面的消息，Follower重启后将其设为hw, 从这一点执行截断，防止出现数据不一致。</li>
+</ul>
+<h2 id="flink-checkpoint">Flink checkpoint</h2>
+<blockquote>
+<p>A checkpoint in Flink is a consistent snapshot of:</p>
+<ol>
+<li>The current state of an application</li>
+<li>The position in an input stream</li>
+</ol>
+</blockquote>
+<p>Flink 容错机制的核心部分是通过持续创建分布式数据流和算子状态的快照。这些快照充当一致的检查点(<strong>snapshots</strong>)，系统可以在发生故障时回退到这些检查点(<strong>checkpoints</strong>)。</p>
+<p>Flink 使用 <a href="https://en.wikipedia.org/wiki/Chandy-Lamport_algorithm">Chandy-Lamport algorithm</a> 算法的一种变体，称为异步 barrier 快照（<em>asynchronous barrier snapshotting</em>）。当 checkpoint coordinator（job manager 的一部分）指示 task manager 开始 checkpoint 时，它会让所有 sources 记录它们的偏移量，并将编号的 <em>checkpoint barriers</em> 插入到它们的流中。这些 barriers 流经 job graph，标注每个 checkpoint 前后的流部分。</p>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/stream_barriers.svg" alt="Checkpoint barriers are inserted into the streams" loading="lazy"></figure>
+<p>Checkpoint <em>n</em> 将包含每个 operator 的 state，这些 state 是对应的 operator 消费了<strong>严格在 checkpoint barrier n之前的所有事件，并且不包含在此（checkpoint barrier n）后的任何事件</strong>后而生成的状态。</p>
+<p><strong>当 job graph 中的每个 operator 接收到 barriers 时，它就会记录下其状态。</strong> 拥有两个输入流的 Operators（例如 <code>CoProcessFunction</code>）会执行 <em>barrier 对齐（barrier alignment）</em> 以便当前快照能够包含消费两个输入流 barrier 之前（但不超过）的所有 events 而产生的状态。</p>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/stream_aligning.svg" alt="Barrier alignment" loading="lazy"></figure>
+<p>Flink 的 state backends 利用写时复制（copy-on-write）机制允许当异步生成旧版本的状态快照时，能够不受影响地继续流处理。只有当快照被持久保存后，这些旧版本的状态才会被当做垃圾回收。</p>
+<h2 id="gfs-checkpoint">GFS checkpoint</h2>
+<p>Copy From 《google file system》</p>
+<p><strong>操作日志(operate log)</strong> 保存了关键的元数据变化历史记录。它是GFS的核心: 不仅仅因为这是唯一持久化的元数据记录，而且也是因为操作记录作为逻辑时间基线，定义了并行操作的顺序。<br>
+由于操作日志是极关键的，我们必须将其可靠保存。在元数据改变并且持久化之前，对于客户端来说都是不可见的（也就是说保证原子性）。否则，就算是chunkserver完好的情况下，我们也可能会丢失整个文件系统，或者最近的客户端操作。因此，<strong>我们把这个文件保存在多个不同的主机上，并且只有当刷新这个相关的操作记录到本地和远程磁盘之后，才会给客户端操作应答</strong>。master可以每次刷新一批日志记录，以减少刷新和复制这个日志导致的系统吞吐量。<br>
+master通过replay操作日志恢复自身文件系统状态。为了减少启动时间，我们必须尽量减少操作日志的大小。<strong>master在日志增长超过某一个大小的时候，执行checkpoint动作保存自己的状态</strong>，这样可以使下次启动的时候从本地硬盘读出这个最新的checkpoint，然后replay有限记录数。checkpoint是一个类似B-树的格式，可以直接映射到内存，而不需要额外的分析。这更进一步加快了恢复的速度，提高了可用性。<br>
+因为建立一个checkpoint可能会花一点时间，于是我们这样设定master的内部状态: 新建立的checkpoint可以不阻塞新的状态变化。<strong>master切换到一个新的log文件，并且在一个独立的线程中创建新的checkpoint。</strong> 新的checkpoint包含了在切换到新log文件之前的状态变化。当这个集群有数百万文件的时候，创建新的checkpoint会花上几分钟的时间。当checkpoint建立完毕，会写到本地和远程的磁盘。<br>
+对于master的恢复，只需要最新的checkpoint以及后续的log文件。旧的checkpoint及其log文件可以删掉了，虽然我们还是保存几个checkpoint以及log，用来防止比较大的故障产生。在checkpoint的时候得故障并不会导致正确性受到影响，因为恢复的代码会检查并且跳过不完整的checkpoint。</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#checkpoint">checkpoint</a></li>
+<li><a href="#%E6%95%B0%E6%8D%AE%E5%BA%93checkpoint">数据库checkpoint</a></li>
+<li><a href="#kafka-checkpoint">Kafka checkpoint</a></li>
+<li><a href="#flink-checkpoint">Flink checkpoint</a></li>
+<li><a href="#gfs-checkpoint">GFS checkpoint</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/kafka-shu-ju-tong-bu-2-flinkkafkaconsumerbase/">
+              <h3 class="post-title">
+                Kafka数据同步2: FlinkKafkaConsumerBase
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

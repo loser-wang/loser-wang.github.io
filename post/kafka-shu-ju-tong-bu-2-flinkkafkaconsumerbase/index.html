@@ -1,0 +1,640 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kafka数据同步2: FlinkKafkaConsumerBase | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Kafka数据同步2: FlinkKafkaConsumerBase | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="Kafka数据同步2: FlinkKafkaConsumerBase
+前言
+正如我们在上一篇《Kafka数据同步1: Flink容错机制》所说:
+Flink 容错机制通过持续创建分布式数据流和算子状态的快照来实现。在遇到程序故障时（如机器、..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Kafka数据同步2: FlinkKafkaConsumerBase
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-06-11
+              </span>
+              <span>
+                13 min read
+              </span>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/logo.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h1 id="kafka数据同步2-flinkkafkaconsumerbase">Kafka数据同步2: FlinkKafkaConsumerBase</h1>
+<h2 id="前言">前言</h2>
+<p>正如我们在上一篇《Kafka数据同步1: Flink容错机制》所说:</p>
+<p>Flink 容错机制通过持续创建分布式数据流和算子状态的快照来实现。在遇到程序故障时（如机器、网络、软件等故障），Flink 停止分布式数据流。系统重启所有 operatr ，重置其到最近成功的 checkpoint。再根据checkpoint找到对应的快照来恢复state，进行stream replay。</p>
+<p>Stream Replay需要满足俩个条件：</p>
+<ul>
+<li><strong>为了成功replay，需要有能够回放一段时间内数据的持久化数据源</strong>，例如持久化消息队列（例如 Apache Kafka、RabbitMQ、 Amazon Kinesis、 Google PubSub 等）或文件系统（例如 HDFS、 S3、 GFS、 NFS、 Ceph 等）</li>
+<li><strong>重放时要保证每条数据都只执行exactly-once或者at-least-once。<strong>如果强要求</strong>exactly-once</strong> , 需要消除介于[上一次checkoint，故障点]之间的操作的影响，比如rollback操作、幂等性操作。</li>
+</ul>
+<p>本篇从数据源的角度出发，以Flink官方提供的<code>FlinkKafkaConsumerBase</code>为例, 看一下如何实现一个可重放的Data Source。<strong>所有Kafka同步工具，其数据同步都是从FlinkKafkaConsumerBase开始的</strong>。</p>
+<h2 id="1-sourcefunction原理">1. SourceFunction原理</h2>
+<p>Copy From 《<a href="https://cloud.tencent.com/developer/article/1952591">Flink SourceFunction 初了解</a>》</p>
+<h3 id="11-sourcefunction">1.1 SourceFunction</h3>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/SourceFunction.png" alt="SourceFunction" loading="lazy"></figure>
+<p>SourceFunction 是 Flink 中所有流数据 Source 的基本接口。SourceFunction 接口继承了 Function 接口，并在内部定义了:</p>
+<ul>
+<li>run() 方法: 数据读取使用</li>
+<li>cancel() 方法: 取消运行</li>
+<li>SourceContext 内部接口: 输出元素</li>
+</ul>
+<pre><code class="language-java">public interface SourceFunction&lt;T&gt; extends Function, Serializable {
+    void run(SourceContext&lt;T&gt; ctx) throws Exception;
+    void cancel();
+
+    interface SourceContext&lt;T&gt; {
+        void collect(T element);
+        void collectWithTimestamp(T element, long timestamp);
+        void emitWatermark(Watermark mark);
+        void markAsTemporarilyIdle();
+        Object getCheckpointLock();
+        void close();
+    }
+}
+</code></pre>
+<p>当 Source 输出元素时，可以 <strong>在 run 方法中调用 SourceContext 接口的 collect 或者 collectWithTimestamp 方法输出元素。</strong> run 方法需要尽可能的一直运行，因此大多数 Source 在 run 方法中都有一个 while 循环。Source 也必须具有响应 cancel 方法调用中断 while 循环的能力。比较通用的模式是添加 volatile 布尔类型变量 isRunning 来表示是否在运行中。在 cancel 方法中设置为 false，并在循环条件中检查该变量是否为 true：</p>
+<pre><code class="language-java">private volatile boolean isRunning = true;
+@Override
+public void run(SourceContext&lt;T&gt; ctx) throws Exception {
+    while (isRunning &amp;&amp; otherCondition == true) {
+        ctx.collect(xxx);
+    }
+}
+
+@Override
+public void cancel() {
+    isRunning = false;
+}
+</code></pre>
+<p>在默认情况下，SourceFunction 不支持并行读取数据，因此 SourceFunction 被 ParallelSourceFunction 接口继承，以支持对外部数据源中数据的并行读取操作：</p>
+<pre><code class="language-java">public interface ParallelSourceFunction&lt;OUT&gt; extends SourceFunction&lt;OUT&gt; {
+}
+</code></pre>
+<p><strong>RichParallelSourceFunction 是用于实现并行 Source 的基类。</strong> Runtime 会执行与 Source 配置的并行度一样多的此函数的并行实例。Source 还可以通过 <code>AbstractRichFunction.getRuntimeContext() </code>访问上下文信息，例如通过 <code>getRuntimeContext().getNumberOfParallelSubtasks()</code> 获取并行实例的数量，通过<code>getRuntimeContext().getIndexOfThisSubtask() </code>获取当前实例是哪个并行实例。</p>
+<h3 id="12-sourcecontext">1.2 SourceContext</h3>
+<p>Flink 将 Source 的运行机制跟发送元素进行了分离。具体如何发送元素，取决于独立内部接口 SourceContext。SourceFunction 以内部接口的方式定义了该上下文接口对象：</p>
+<pre><code class="language-java">public interface SourceFunction&lt;T&gt; extends Function, Serializable {
+    ...
+    interface SourceContext&lt;T&gt; {
+        void collect(T element);
+        void collectWithTimestamp(T element, long timestamp);
+        void emitWatermark(Watermark mark);
+        void markAsTemporarilyIdle();
+        Object getCheckpointLock();
+        void close();
+    }
+}
+</code></pre>
+<p>SourceContext 定义了数据接入过程用到的上下文信息，包含如下方法：</p>
+<ul>
+<li>collect()：用于收集从外部数据源读取的数据并下发到下游算子中。</li>
+<li>collectWithTimestamp()：用于支持收集数据元素以及 EventTime 时间戳。</li>
+<li>emitWatermark()：用于在 SourceFunction 中生成 Watermark 并发送到下游算子进行处理。</li>
+<li>getCheckpointLock()：用于获取检查点锁（Checkpoint Lock），例如使用 KafkaConsumer 读取数据时，可以使用检查点锁，确保记录发出的原子性和偏移状态更新。</li>
+</ul>
+<h2 id="2-继承关系">2. 继承关系</h2>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/FlinkKafkaConsumerBase.png" alt="FlinkKafkaConsumerBase" loading="lazy"></figure>
+<center>FlinkKafkaConsumerBase继承关系</center>
+<p>首先看一下KafkaConsumer的继承关系，可以有大致的推测：</p>
+<ul>
+<li>extends RichParallelSourceFunction: 支持并行读。</li>
+<li>implements CheckpointedFunction: 支持checkpoint机制，对state进行快照备份，用来提供容错机制。</li>
+<li>implements CheckpointListener：支持2-pc功能。</li>
+</ul>
+<h2 id="3-数据读取">3 数据读取</h2>
+<figure data-type="image" tabindex="3"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/kafka%20consumer%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84%E5%9B%BE.svg" alt="kafka consumer整体架构图" loading="lazy"></figure>
+<center>图 整体架构图</center>
+<h3 id="31-run">3.1 run</h3>
+<p>首先从KafkaConsumer的run方法，可以看看数据读取的大致逻辑：通过Fetcher源源不断地读取数据，然后通过SourceContext.collect方法输出：</p>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase#run
+@Override
+public void run(SourceContext&lt;T&gt; sourceContext) throws Exception {
+    ...
+      
+		this.kafkaFetcher = createFetcher(
+				sourceContext,
+				subscribedPartitionsToStartOffsets,
+				periodicWatermarkAssigner,
+				punctuatedWatermarkAssigner,
+				(StreamingRuntimeContext) getRuntimeContext(),
+				offsetCommitMode,
+				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
+				useMetrics);
+
+		if (!running) {
+			return;
+		}
+
+		if (discoveryIntervalMillis == PARTITION_DISCOVERY_DISABLED) {
+			kafkaFetcher.runFetchLoop();
+		} else {
+			runWithPartitionDiscovery();
+		}
+	}
+
+</code></pre>
+<h3 id="32-abstractfetcher">3.2 AbstractFetcher</h3>
+<p>Fetcher源源不断地读取数据，然后通过SourceContext.collect方法输出。</p>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher
+@Override
+	public void runFetchLoop() throws Exception {
+		try {
+			final Handover handover = this.handover;
+
+			// kick off the actual Kafka consumer
+			consumerThread.start();
+
+			while (running) {
+				// this blocks until we get the next records
+				// it automatically re-throws exceptions encountered in the consumer thread
+				final ConsumerRecords&lt;byte[], byte[]&gt; records = handover.pollNext();
+
+				// get the records for each topic partition
+				for (KafkaTopicPartitionState&lt;TopicPartition&gt; partition : subscribedPartitionStates()) {
+
+					List&lt;ConsumerRecord&lt;byte[], byte[]&gt;&gt; partitionRecords =
+							records.records(partition.getKafkaPartitionHandle());
+
+					for (ConsumerRecord&lt;byte[], byte[]&gt; record : partitionRecords) {
+
+						final T value = deserializer.deserialize(record);
+
+						if (deserializer.isEndOfStream(value)) {
+							// end of stream signaled
+							running = false;
+							break;
+						}
+
+						// emit the actual record. this also updates offset state atomically
+						// and deals with timestamps and watermark generation
+						emitRecord(value, partition, record.offset(), record);
+					}
+				}
+			}
+		}
+		finally {
+			// this signals the consumer thread that no more work is to be done
+			consumerThread.shutdown();
+		}
+</code></pre>
+<h3 id="33-handover">3.3 Handover</h3>
+<p>Handover是KafkaConsumerThread 和 Fetcher 通信的信息载体(共享变量)，包含error和一批record。</p>
+<pre><code class="language-java">public final class Handover implements Closeable {
+    // 消息体
+    private ConsumerRecords&lt;byte[], byte[]&gt; next;
+    //error信息
+    private Throwable error;
+    private boolean wakeupProducer;
+}
+</code></pre>
+<p>Handover的读写可以看着一个容量为1的阻塞队列，从而保证 <strong>KafkaConsumerThread生产消息 -&gt; Fetcher消费消息-&gt;KafkaConsumerThread生产消息 -&gt; Fetcher消费消息....</strong> 的先后顺序。<strong>从而保证只要一批消息被算子拉取之后，才拉取下一批数据。（kafkaConsumerThread会解释为何如此设计)</strong></p>
+<pre><code class="language-java">/**
+* Polls the next element from the Handover, possibly blocking until the next element is
+* available. This method behaves similar to polling from a blocking queue.
+*/
+	@Nonnull
+	public ConsumerRecords&lt;byte[], byte[]&gt; pollNext() throws Exception {
+		synchronized (lock) {
+			while (next == null &amp;&amp; error == null) {
+				lock.wait();
+			}
+
+			ConsumerRecords&lt;byte[], byte[]&gt; n = next;
+			if (n != null) {
+				next = null;
+				lock.notifyAll();
+				return n;
+			}
+			else {
+				ExceptionUtils.rethrowException(error, error.getMessage());
+
+				// this statement cannot be reached since the above method always throws an exception
+				// this is only here to silence the compiler and any warnings
+				return ConsumerRecords.empty();
+			}
+		}
+	}
+</code></pre>
+<pre><code class="language-java">/**
+* Hands over an element from the producer. If the Handover already has an element that was not yet picked up by the consumer thread, this call blocks until the consumer picks up that previous element.
+* This behavior is similar to a &quot;size one&quot; blocking queue.
+*/
+
+public void produce(final ConsumerRecords&lt;byte[], byte[]&gt; element)
+			throws InterruptedException, WakeupException, ClosedException {
+
+		checkNotNull(element);
+
+		synchronized (lock) {
+      //只有为空时才能写入
+			while (next != null &amp;&amp; !wakeupProducer) {
+				lock.wait();
+			}
+
+			wakeupProducer = false;
+
+			// if there is still an element, we must have been woken up
+			if (next != null) {
+				throw new WakeupException();
+			}
+			// if there is no error, then this is open and can accept this element
+			else if (error == null) {
+				next = element;
+				lock.notifyAll();
+			}
+			// an error marks this as closed for the producer
+			else {
+				throw new ClosedException();
+			}
+		}
+	}
+</code></pre>
+<h3 id="34-kafkaconsumerthread">3.4 KafkaConsumerThread</h3>
+<p>KafkaConsumerThread定期 拉取数据 和 提交位移commit。<strong>通过Handover的存取机制保证每一次迭代开始前，上一批拉取的数据已经被消费。然后本轮迭代先提交offset commit, 再拉取下一批数据。</strong></p>
+<p>由此可见，KafkaConsumerThread消费速度取决于三个因素：</p>
+<ul>
+<li>Kafka提供消息的速度。</li>
+<li>Flink消费的速度。</li>
+<li>rateLimiter限流的速度</li>
+</ul>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerThread#run
+@Override
+public void run() {
+    // this is the means to talk to FlinkKafkaConsumer's main thread
+		final Handover handover = this.handover;
+    this.consumer = getConsumer(kafkaProperties);
+     ...
+     
+     // main fetch loop
+			while (running) {
+      // 1.提交offset
+			// get and reset the work-to-be committed, so we don't repeatedly commit the same
+			final Tuple2&lt;Map&lt;TopicPartition, OffsetAndMetadata&gt;, KafkaCommitCallback&gt; commitOffsetsAndCallback =
+							nextOffsetsToCommit.getAndSet(null);
+
+			if (commitOffsetsAndCallback != null) {
+						log.debug(&quot;Sending async offset commit request to Kafka broker&quot;);
+
+						// also record that a commit is already in progress
+						// the order here matters! first set the flag, then send the commit command.
+						commitInProgress = true;
+						consumer.commitAsync(commitOffsetsAndCallback.f0, new CommitCallback(commitOffsetsAndCallback.f1));
+					}
+			}
+    
+    ...
+      
+      // 2. 拉取数据
+			if (records == null) {
+						records = getRecordsFromKafka();
+			}
+     
+    // 3. 写入到handover
+     handover.produce(records);
+    
+    ...
+    }
+</code></pre>
+<h2 id="4-checkpoint机制容错">4. checkpoint机制容错</h2>
+<p>按照前面的问题看似已经完美无缺，无需额外保障：<strong>通过Handover的存取机制保证每一次迭代开始前，上一批拉取的数据已经被消费。然后本轮迭代先提交offset commit, 再拉取下一批数据。即使系统宕机，重启也应该从没有消费的消息开始。</strong></p>
+<p><strong>但是！上面只能保证上一批数据被Data Souce消费，并不能保证消息成功完成流操作了。如果宕机，这批数据就丢失了，无法保证At-Least语义。所以要通过checkpoint机制（Kafka数据同步1: Flink容错机制度）进行回放。</strong></p>
+<p>从系统中消费的某一时刻开始，看看checkpoint机制如何在FlinkKafkaConsumerBase中提供容错。</p>
+<h3 id="a-提供输出流">a. 提供输出流</h3>
+<figure data-type="image" tabindex="4"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/Flink-Kafka-Checkpoints-Step-2.png" alt="consumer消费数据" loading="lazy"></figure>
+<p>系统中的某一时刻，将数据输出。</p>
+<h3 id="b-到达barrier">b. 到达Barrier</h3>
+<figure data-type="image" tabindex="5"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/Flink-Kafka-Checkpoints-Step-3.png" alt="触发checlpoint" loading="lazy"></figure>
+<p>当读到 checkpoint barrier 边界时，会触发<strong>checkpointing</strong>操作产生系统快照，供后续出现故障重启时使用。</p>
+<h3 id="c-pre-commit-snapshotstate">c. pre-commit: snapshotState</h3>
+<figure data-type="image" tabindex="6"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/Flink-Kafka-Checkpoints-Step-4.png" alt="pre-commit" loading="lazy"></figure>
+<center>图 触发checkpoint操作</center>
+<p>kafaConsumer将当前的offset保存到state。</p>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase.java
+
+//保存到state backend的offset数据
+private transient ListState&lt;Tuple2&lt;KafkaTopicPartition, Long&gt;&gt; unionOffsetStates;
+
+
+//pre-commit的offset数据
+private final LinkedMap pendingOffsetsToCommit = new LinkedMap();
+
+
+@Override
+public final void snapshotState(FunctionSnapshotContext context) throws Exception {
+   // ...
+  
+  unionOffsetStates.clear();
+  //更新state（重启task时使用)
+  for (Map.Entry&lt;KafkaTopicPartition, Long&gt; subscribedPartition : subscribedPartitionsToStartOffsets.entrySet()) {
+			unionOffsetStates.add(Tuple2.of(subscribedPartition.getKey(), subscribedPartition.getValue()));
+	}
+  
+  // 保存pre-commit的offset数据（用于持久化保存，重启job时使用）
+  pendingOffsetsToCommit.put(context.getCheckpointId(), currentOffsets);
+  
+  // ......
+}
+
+</code></pre>
+<h3 id="d-commit-notifycheckpointcomplete">d. commit: notifyCheckpointComplete</h3>
+<figure data-type="image" tabindex="7"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/Flink-Kafka-Checkpoints-Step-6.webp" alt="commit" loading="lazy"></figure>
+<p>kafka consumer会提交offset，进入下一轮消费。job重启时，默认从本次提交的offset之后开始消费；如果task重启，先确保上一次的commit成功，再按照后面消费。</p>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase.java
+@Override
+public final void notifyCheckpointComplete(long checkpointId) throws Exception {
+  
+  //获取当前checkpoint
+  final int posInMap = pendingOffsetsToCommit.indexOf(checkpointId);
+  
+  //获取对应的偏移量
+  Map&lt;KafkaTopicPartition, Long&gt; offsets =
+					(Map&lt;KafkaTopicPartition, Long&gt;) pendingOffsetsToCommit.remove(posInMap);
+  // remove older checkpoints in map
+	for (int i = 0; i &lt; posInMap; i++) {
+				pendingOffsetsToCommit.remove(0);
+  }
+  
+  fetcher.commitInternalOffsetsToKafka(offsets, offsetCommitCallback);
+}
+</code></pre>
+<h3 id="e-initializestate任务重启">e. initializeState任务重启</h3>
+<figure data-type="image" tabindex="8"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/Flink-Kafka-Checkpoints-Step-8.webp" alt="initializeState恢复事务" loading="lazy"></figure>
+<p>如果任务出错重启, 重启时会调用CheckpointedFunction的initializeState方法：</p>
+<ul>
+<li>从状态中恢复事务信息</li>
+<li>对pre-commit事务的提交</li>
+<li>对失败的事务进行rollback。</li>
+</ul>
+<p>需要commit的数据就是上一次checkpoint时保存在state中的offset。从该offset之后开始消费，就默认完成了事务的提交。</p>
+<pre><code class="language-java">//org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase.java
+
+//1. state -&gt;  restoredState
+@Override
+public final void initializeState(FunctionInitializationContext context) throws Exception {
+	//从state backend获取state
+	this.unionOffsetStates = stateStore.getUnionListState(new ListStateDescriptor&lt;&gt;(
+				OFFSETS_STATE_NAME,
+				TypeInformation.of(new TypeHint&lt;Tuple2&lt;KafkaTopicPartition, Long&gt;&gt;() {})));
+  
+  // 从state中获取上次checkpoint的偏移
+	for (Tuple2&lt;KafkaTopicPartition, Long&gt; kafkaOffset : unionOffsetStates.get()) {
+		restoredState.put(kafkaOffset.f0, kafkaOffset.f1);
+	}
+}
+
+
+//2. restoredState -&gt;  subscribedPartitionsToStartOffsets
+@Override
+public void open(Configuration configuration) throws Exception {
+  
+    if (restoredState != null) {
+			for (KafkaTopicPartition partition : allPartitions) {
+        //如果恢复state不包含分区，设为EARLIEST_OFFSET
+				if (!restoredState.containsKey(partition)) {
+					restoredState.put(partition, KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET);
+				}
+			}
+    
+      //恢复offset
+     for (Map.Entry&lt;KafkaTopicPartition, Long&gt; restoredStateEntry : restoredState.entrySet()) {
+        subscribedPartitionsToStartOffsets.put(restoredStateEntry.getKey(), restoredStateEntry.getValue());
+     }
+ }
+  
+  
+// 3. subscribedPartitionsToStartOffsets开始消费
+ @Override
+public void run(SourceContext&lt;T&gt; sourceContext) throws Exception {
+  //给fetch设置消费起始位移
+  this.kafkaFetcher = createFetcher(
+				sourceContext,
+				subscribedPartitionsToStartOffsets,
+				periodicWatermarkAssigner,
+				punctuatedWatermarkAssigner,
+				(StreamingRuntimeContext) getRuntimeContext(),
+				offsetCommitMode,
+				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
+				useMetrics);
+  if (discoveryIntervalMillis == PARTITION_DISCOVERY_DISABLED) {
+			kafkaFetcher.runFetchLoop();
+		} else {
+			runWithPartitionDiscovery();
+		}
+  
+}
+
+</code></pre>
+<h3 id="f-job重启较少">f. job重启（较少)</h3>
+<p>类似2PC成功执行的前提是Coordinator正常运行，Flink的2PC执行的前提也是Job Master正常运行。但是如果整个Flink应用突然宕机或者出现其他异常，我们被迫在新的Flink应用重启job。此时state消失了，自然也无法获取checkpoint数据了，如何将数据恢复到一致呢？</p>
+<p><strong>默认Job重启后，consumer会接着上次commit成功的offset开始消费，这样至少能保证 At-Least 语义。但是，如果要实现 exactly-once 语义，还需要更严格的要求（即保证外部存储的rollback)。</strong></p>
+<h2 id="参考文章">参考文章</h2>
+<p><a href="https://cloud.tencent.com/developer/article/1952591">Flink SourceFunction 初了解</a></p>
+<p><a href="https://www.ververica.com/blog/how-apache-flink-manages-kafka-consumer-offsets">how-apache-flink-manages-kafka-consumer-offsets</a></p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#kafka%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A52-flinkkafkaconsumerbase">Kafka数据同步2: FlinkKafkaConsumerBase</a>
+<ul>
+<li><a href="#%E5%89%8D%E8%A8%80">前言</a></li>
+<li><a href="#1-sourcefunction%E5%8E%9F%E7%90%86">1. SourceFunction原理</a>
+<ul>
+<li><a href="#11-sourcefunction">1.1 SourceFunction</a></li>
+<li><a href="#12-sourcecontext">1.2 SourceContext</a></li>
+</ul>
+</li>
+<li><a href="#2-%E7%BB%A7%E6%89%BF%E5%85%B3%E7%B3%BB">2. 继承关系</a></li>
+<li><a href="#3-%E6%95%B0%E6%8D%AE%E8%AF%BB%E5%8F%96">3 数据读取</a>
+<ul>
+<li><a href="#31-run">3.1 run</a></li>
+<li><a href="#32-abstractfetcher">3.2 AbstractFetcher</a></li>
+<li><a href="#33-handover">3.3 Handover</a></li>
+<li><a href="#34-kafkaconsumerthread">3.4 KafkaConsumerThread</a></li>
+</ul>
+</li>
+<li><a href="#4-checkpoint%E6%9C%BA%E5%88%B6%E5%AE%B9%E9%94%99">4. checkpoint机制容错</a>
+<ul>
+<li><a href="#a-%E6%8F%90%E4%BE%9B%E8%BE%93%E5%87%BA%E6%B5%81">a. 提供输出流</a></li>
+<li><a href="#b-%E5%88%B0%E8%BE%BEbarrier">b. 到达Barrier</a></li>
+<li><a href="#c-pre-commit-snapshotstate">c. pre-commit: snapshotState</a></li>
+<li><a href="#d-commit-notifycheckpointcomplete">d. commit: notifyCheckpointComplete</a></li>
+<li><a href="#e-initializestate%E4%BB%BB%E5%8A%A1%E9%87%8D%E5%90%AF">e. initializeState任务重启</a></li>
+<li><a href="#f-job%E9%87%8D%E5%90%AF%E8%BE%83%E5%B0%91">f. job重启（较少)</a></li>
+</ul>
+</li>
+<li><a href="#%E5%8F%82%E8%80%83%E6%96%87%E7%AB%A0">参考文章</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/kafka-shu-ju-tong-bu-1flink-rong-cuo-ji-zhi/">
+              <h3 class="post-title">
+                Kafka数据同步1:Flink容错机制
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

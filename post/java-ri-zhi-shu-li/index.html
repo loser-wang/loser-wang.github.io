@@ -1,0 +1,871 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Java日志梳理 | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Java日志梳理 | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="log4j
+在Java1.4之前，JDK并没有日志。Apache基金会最早实现一套日志框架log4j，在Java1.4之前只有这一种选择。
+Log4j中有三个主要组成部分：
+
+loggers: 负责捕获记录信息。
+appenders : 负..." />
+    <meta name="keywords" content="java基础" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Java日志梳理
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-11-05
+              </span>
+              <span>
+                25 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/Q99GqzLbM/" class="post-tag">
+                  # java基础
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h1 id="log4j">log4j</h1>
+<p>在Java1.4之前，JDK并没有日志。Apache基金会最早实现一套日志框架<strong>log4j</strong>，在Java1.4之前只有这一种选择。</p>
+<p>Log4j中有三个主要组成部分：</p>
+<ul>
+<li><strong>loggers:</strong> 负责捕获记录信息。</li>
+<li><strong>appenders :</strong> 负责发布日志信息，以不同的首选目的地。</li>
+<li><strong>layouts:</strong> 负责格式化不同风格的日志信息。</li>
+</ul>
+<h2 id="log4j框架">log4j框架</h2>
+<p>Log4j API设计为<strong>分层结构</strong>，其中每一层提供了不同的<strong>对</strong>象，对象执行不同的任务。这使得设计灵活，根据将来需要来扩展。</p>
+<p>有两种类型可用在Log4j的框架对象。</p>
+<ul>
+<li><strong>核心对象：</strong> 框架的强制对象和框架的使用。</li>
+<li><strong>支持对象：</strong> 框架和支持体核心对象，可选的对象执行另外重要的任务。</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/log4j.jpeg" alt="log4j" loading="lazy"></figure>
+<h3 id="核心对象">核心对象</h3>
+<ul>
+<li><strong>Logger对象</strong>：顶级层的Logger，它提供Logger对象。Logger对象负责捕获日志信息及它们存储在一个空间的层次结构。</li>
+<li><strong>布局(Layout)对象</strong>：该层提供其用于格式化不同风格的日志信息的对象。布局层提供支持Appender对象到发布日志信息之前。布局对象的发布方式是人类可读的及可重复使用的记录信息的一个重要的角色。</li>
+<li><strong>Appender对象</strong>：下位层提供Appender对象。Appender对象负责发布日志信息，以不同的首选目的地，如数据库，文件，控制台，UNIX系统日志等。</li>
+</ul>
+<h3 id="支持对象">支持对象</h3>
+<p>log4j框架的其他重要的对象起到日志框架的一个重要作用：</p>
+<ul>
+<li><strong>Level对象</strong>：级别对象定义的任何记录信息的粒度和优先级。有记录的七个级别在API中定义：OFF, DEBUG, INFO, ERROR, WARN, FATAL 和 ALL。</li>
+<li><strong>Filter对象</strong>：过滤对象用于分析日志信息及是否应记录或不用这些信息做出进一步的决定。一个appender对象可以有与之关联的几个Filter对象。如果日志记录信息传递给特定Appender对象，都和特定Appender相关的Filter对象批准的日志信息，然后才能发布到所连接的目的地。</li>
+<li><strong>对象渲染器</strong>：<strong>ObjectRenderer</strong>对象是一个指定提供传递到日志框架的不同对象的字符串表示。这个对象所使用的布局对象来准备最后的日志信息。</li>
+<li><strong>日志管理（LogManager）</strong>：日志管理对象管理的日志框架。它负责从一个系统级的配置文件或配置类读取初始配置参数。</li>
+</ul>
+<h2 id="log4j配置">log4j配置</h2>
+<p>配置log4j涉及<strong>分配级别</strong>，定义<strong>追加程序</strong>，并在<strong>配置文件</strong>中指定<strong>布局的对象</strong>。</p>
+<h3 id="log4jproperties">log4j.properties</h3>
+<ul>
+<li>
+<p><strong>根日志记录器</strong>(logger)的级别定义为DEBUG并连接**附加器(appender)**命名为X</p>
+</li>
+<li>
+<p>附加器X定义为org.apache.log4j.FileAppender, 并写入到一个名为“log.out”位于<strong>日志log</strong>目录下</p>
+</li>
+<li>
+<p>定义的布局模式是%m%n，这意味着每打印日志消息之后，将加上一个换行符</p>
+<pre><code class="language-text">  # Define the root logger with appender X 
+log4j.rootLogger = DEBUG, X
+# Set the appender named X to be a File appender
+log4j.appender.X=org.apache.log4j.FileAppender
+log4j.appender.X.File=${log}/log.out
+#Define the layout for X appender
+log4j.appender.X.layout=org.apache.log4j.PatternLayout
+log4j.appender.X.layout.conversionPattern=%m%n
+</code></pre>
+<p>需要注意的是log4j支持UNIX风格的变量替换，如 ${variableName}</p>
+</li>
+</ul>
+<h3 id="日志等级">日志等级</h3>
+<p>日志等级有如下：</p>
+<ul>
+<li><strong>ALL</strong></li>
+<li><strong>TRACE</strong></li>
+<li><strong>DEBUG</strong></li>
+<li><strong>INFO</strong></li>
+<li><strong>WARN</strong></li>
+<li><strong>ERROR</strong></li>
+<li><strong>FATAL</strong></li>
+<li><strong>OFF</strong></li>
+</ul>
+<p>级别p的级别使用q，在记录日志请求时，如果p&gt;=q启用。对于标准级别它们关系如下：ALL &lt; DEBUG &lt; INFO &lt; WARN &lt; ERROR &lt; FATAL &lt; OFF。</p>
+<h3 id="appenders">Appenders</h3>
+<p>Apache的log4j提供Appender对象主要负责打印日志消息到不同的目的地，如控制台，文件，sockets，NT事件日志等等。</p>
+<p>每个Appender对象具有与之相关联的不同的属性，并且这些属性表明对象的行为:</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>layout</td>
+<td>Appender使用布局Layout 对象和与之相关的格式化的日志记录信息转换模式</td>
+</tr>
+<tr>
+<td>target</td>
+<td>目标可以是一个控制台，一个文件，或根据附加器的另一个项目</td>
+</tr>
+<tr>
+<td>level</td>
+<td>级别是必需的，以控制日志消息的过滤</td>
+</tr>
+<tr>
+<td>threshold</td>
+<td>Appender可以有与之独立的记录器级别相关联的级别阈值水平。Appender忽略具有级别低于阈级别的任何日志消息</td>
+</tr>
+<tr>
+<td>filter</td>
+<td>Filter 对象可以分析超出级别的匹配记录信息，并决定是否记录的请求应该由一个特定 Appender 或忽</td>
+</tr>
+</tbody>
+</table>
+<p>可以通过包括以下方法的配置文件中的下面设置一个 Appender 对象添加到记录器：</p>
+<pre><code>log4j.logger.[logger-name]=level, appender1,appender..n 
+</code></pre>
+<p>可以编写以XML格式相同的结构如下：</p>
+<pre><code class="language-xml">&lt;logger name=&quot;com.apress.logging.log4j&quot; additivity=&quot;false&quot;&gt;   
+  &lt;appender-ref ref=&quot;appender1&quot;/&gt;    
+  &lt;appender-ref ref=&quot;appender2&quot;/&gt;
+&lt;/logger&gt;
+</code></pre>
+<p>我们仅使用一个附加目的地FileAppender在我们上面的例子。所有可能的附加目的地选项有：</p>
+<ul>
+<li>AsyncAppender</li>
+<li>ConsoleAppender</li>
+<li>FileAppender</li>
+<li>DailyRollingFileAppender</li>
+<li>JDBCAppender</li>
+<li>SMTPAppender</li>
+<li>SocketAppender</li>
+<li>......</li>
+</ul>
+<h3 id="layout">Layout</h3>
+<p>所有可能的选项有：</p>
+<ul>
+<li>DateLayout</li>
+<li>HTMLLayout</li>
+<li><strong>PatternLayout(最常用）</strong></li>
+<li>SimpleLayout</li>
+<li>XMLLayout</li>
+</ul>
+<p>使用HTMLLayout和XMLLayout，可以在HTML和XML格式和生成日志。</p>
+<pre><code># Define the root logger with appender file
+log = /usr/home/log4j
+log4j.rootLogger = DEBUG, FILE
+
+# Define the file appender
+log4j.appender.FILE=org.apache.log4j.FileAppender
+log4j.appender.FILE.File=${log}/htmlLayout.html
+
+# Define the layout for file appender
+log4j.appender.FILE.layout=org.apache.log4j.HTMLLayout
+log4j.appender.FILE.layout.Title=HTML Layout Example
+log4j.appender.FILE.layout.LocationInfo=true
+</code></pre>
+<pre><code class="language-java">public class log4jExample{
+  static Logger log = Logger.getLogger(log4jExample.class.getName());
+
+  public static void main(String[] args)
+                throws IOException,SQLException{
+
+     log.debug(&quot;Hello this is an debug message&quot;);
+     log.info(&quot;Hello this is an info message&quot;);
+  }
+}
+</code></pre>
+<h3 id=""></h3>
+<h1 id="juljava-util-log">JUL(Java Util Log)</h1>
+<p>在一段时间内，Log4j近乎成了Java社区的日志标准。据说Apache基金会还曾经建议Sun引入Log4j到java的标准库中，但Sun拒绝了。<br>
+终于在2002年Java1.4发布，Sun推出了自己的日志库J.U.L(jdk-logging)。但基本上是模仿Log4j的实现。有点儿鸡肋，但最起码解决了有无的问题。从此开发者有了两种选择。（虽然并不推荐JUL).</p>
+<h1 id="jclcommons-logging">JCL(Commons Logging)</h1>
+<p>因为有了两种选择，所以导致了日志使用的混乱。所以Apache推出了<strong>J.C.L</strong>(<strong>commons-logging</strong>)。它只是定义了一套日志接口，支持运行时动态加载日志组件。应用层编写代码时，只需要使用J.C.L提供的统一接口来记录日志，**在程序运行时会优先找系统是否集成Log4j，如果集成则使用Log4j做为日志实现，如果没找到则使用J.U.L做为日志实现。**J.C.L的出现解决了多种日志框架共存的尴尬，也是面向接口编程思想的一种具体体现。</p>
+<p>通过LogFactory获取Log类的实例； 第二步，使用Log实例的方法打日志。</p>
+<pre><code class="language-xml">&lt;!--引入common-logging--&gt;
+&lt;dependency&gt;
+   &lt;groupId&gt;commons-logging&lt;/groupId&gt;
+   &lt;artifactId&gt;commons-logging&lt;/artifactId&gt;
+   &lt;version&gt;1.2&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<pre><code class="language-java">import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+public class Main {
+    public static void main(String[] args) {
+        Log log = LogFactory.getLog(Main.class);
+        log.info(&quot;start...&quot;);
+        log.warn(&quot;end.&quot;);
+    }
+}
+</code></pre>
+<p>Commons Logging定义了6个日志级别：</p>
+<ul>
+<li>TRACE</li>
+<li>DEBUG</li>
+<li>INFO</li>
+<li>WARNING</li>
+<li>ERROR</li>
+<li>FATAL</li>
+</ul>
+<h1 id="slf4j基本概念">SLF4J基本概念</h1>
+<p>作为元老级日志 Log4j 的作者 (Ceki Gülcü)，他觉得 JCL 不够优秀，所以他再度出山，搞出了一套更优雅的日志框架 SLF4J（这个也是抽象层），即简单日志门面（Simple Logging Facade for Java），并为 SLF4J 实现了一个亲儿子——logback，确实更加优雅了。</p>
+<p>SLF4J代表_Simple Logging Facade for Java_。它提供了Java中所有日志框架的简单抽象。<br>
+<img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/slfj.png" alt="SLF4J" loading="lazy"></p>
+<p>如同使用JDBC基本不用考虑具体数据库一样，SLF4J提供了统一的记录日志的接口，只要按照其提供的方法记录即可，最终日志的格式、记录级别、输出方式等通过具体日志系统的配置来实现，因此可以在应用中灵活切换日志系统。比如：slf4j-simple、logback都是slf4j的具体实现；log4j并不直接实现slf4j，但是有专门的一层桥接slf4j-log4j12来实现slf4j。</p>
+<p>使用SLF4J时，结构如下：</p>
+<ul>
+<li><strong>slf4j-api(接口层)</strong>:这个包只有日志的接口，并没有实现</li>
+<li>各日志实现包的<strong>连接层</strong>( slf4j-jdk14, slf4j-log4j12):  各日志实现包的适配器</li>
+<li>各日志<strong>实现包</strong></li>
+</ul>
+<h1 id="slf4j集成logback">SLF4J集成logback</h1>
+<p>logback分成三个模块：</p>
+<ul>
+<li><strong>logback-core</strong> 提供了logBack的核心功能，是另外两个组件的基础；</li>
+<li><strong>logback-classic</strong>  模块实现了SLF4J API；</li>
+<li><strong>logback-access</strong>  模块与Servlet容器集成提供Http来访问日志的功能。</li>
+</ul>
+<h2 id="依赖">依赖</h2>
+<pre><code class="language-xml">&lt;!--slf4j --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+    &lt;version&gt;1.7.20&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- logback --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-core&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+    &lt;artifactId&gt;logback-access&lt;/artifactId&gt;
+    &lt;version&gt;1.1.7&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<h2 id="配置文件">配置文件</h2>
+<pre><code class="language-xml">&lt;!--每天生成一个文件，归档文件保存30天：--&gt;
+&lt;configuration &gt;
+
+    &lt;!--设置自定义pattern属性--&gt;
+    &lt;property name=&quot;pattern&quot; value=&quot;%d{HH:mm:ss.SSS} [%-5level] [%thread] [%logger] %msg%n&quot;/&gt;
+
+    &lt;!--控制台输出日志--&gt;
+    &lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;
+        &lt;!--设置控制台输出日志的格式--&gt;
+        &lt;encoder&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!--滚动记录日志文件：--&gt;
+    &lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+        &lt;!--当天生成的日志文件名称：--&gt;
+        &lt;file&gt;e:/log.out&lt;/file&gt;
+        &lt;!--根据时间来记录日志文件：--&gt;
+        &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+            &lt;!--归档日志文件的名称：--&gt;
+            &lt;fileNamePattern&gt;testLog-%d{yyyy-MM-dd}.log&lt;/fileNamePattern&gt;
+            &lt;!--归档文件保存30天--&gt;
+            &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+        &lt;/rollingPolicy&gt;
+        &lt;!--生成的日志信息格式--&gt;
+        &lt;encoder&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!--根root logger--&gt;
+    &lt;root level=&quot;DEBUG&quot;&gt;
+        &lt;!--设置根logger的日志输出目的地--&gt;
+        &lt;appender-ref ref=&quot;FILE&quot; /&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/root&gt;
+
+&lt;/configuration&gt;
+</code></pre>
+<h2 id="使用">使用</h2>
+<pre><code class="language-java">import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class slf4j_logbackDemo {
+    Logger logger=  LoggerFactory.getLogger(slf4j_logbackDemo.class);
+
+    @Test
+    public void test() {
+        logger.debug(&quot;debug message&quot;);
+        logger.info(&quot;info message&quot;);
+        logger.warn(&quot;warning message&quot;);
+        logger.error(&quot;error message&quot;);
+        logger.warn(&quot;login message&quot;);
+    }
+}
+</code></pre>
+<h2 id="配置文件详解">配置文件详解</h2>
+<figure data-type="image" tabindex="2"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/Java%E6%97%A5%E5%BF%97%E6%A2%B3%E7%90%86/configuration.png" alt="配置文件" loading="lazy"></figure>
+<h3 id="configuration配置根节点">configuration：配置根节点</h3>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>scan：程序运行时配置文件被修改，是否重新加载。true，重新加载；false,不重新加载；默认为true;</li>
+<li>scanPeriod：监测配置文件被修改的时间间隔，scan属性必须设置为true才可生效；默认为1分钟，默认单位是毫秒；</li>
+<li>debug：是否打印logback程序运行的日志信息。true,打印；false,不打印；默认为false;</li>
+</ul>
+<h3 id="property属性变量">property：属性变量</h3>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;
+    &lt;property name=&quot;pattern&quot; value=&quot;%d{HH:mm:ss.SSS} [%-5level] [%logger] %msg%n&quot; &gt;
+    &lt;/property&gt;
+&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>name：变量的名称，可以随意起名，但建议名字要简明直译；</li>
+<li>value:变量的值；</li>
+</ul>
+<p>在配置文件中，我们可以用 ${} 的方式来使用，将变量引入到其他节点中去。如果有多处使用相同的内容，便可使用属性变量的方式进行统一，减少很多不必要的代码；</p>
+<h3 id="loggerlogger日志对象">logger<logger>：日志对象</h3>
+<p>logger分为2种，一种是普通日志对象，另一种是根日志对象。对于大部分应用来说，只设置根日志对象即可。在java日志系统中，无论是log4j还是logback，他们的日志对象体系都是呈现“树”的形式，根日志对象为最顶层节点，其余包或者类中的日志对象都继承于根日志节点；</p>
+<p>对于普通日志对象来说，我们可以设置某一个包或者某一个类的日志级别，还可以单独设置日志的输出目的地；</p>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;   
+    &lt;logger name=&quot;java.sql&quot; level=&quot;debug&quot; addtivity=&quot;true&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/logger&gt;   
+&lt;/configuration&gt;  
+</code></pre>
+<ul>
+<li>name：用来指定此logger属于哪个包或者哪个类；</li>
+<li>level：用来指定此logger的日志打印级别；</li>
+<li>addtivity：是否<strong>向上传递日志打印信息</strong>。之前说了，logger对象呈现一个树的结构，根logger是树的顶端，下面的子logger的addtivity属性如果设置为true则会向上传递打印信息，出现<strong>日志重复打印</strong>的现象；</li>
+<li>appender-ref：日志输出目的地，将此logger所打印的日志交给此appender；</li>
+</ul>
+<p>值得注意的是，上面的例子中，如果此logger没有指定appender，而且addtivity也设置为true，那么此logger对应的日志信息只会打印一遍，是由root来完成的；但是如果addtivity设置成false，那么此logger将不会输出任何日志信息；</p>
+<h3 id="loggerroot根日志对象">logger<root>：根日志对象'</h3>
+<p><strong>root</strong>也是日志对象中的一种，但它位于logger体系中的最顶层。当一个类中的logger对象进行打印请求时，如果配置文件中没有为该类单独指定日志对象，那么都会交给root根日志对象来完成；</p>
+<p><strong>root</strong>节点中只有一个level属性，还可以单独指定日志输除目的地<apender-ref>;</p>
+<pre><code class="language-xml">&lt;configuration scan=&quot;true&quot; scanPeriod=&quot;60&quot; debug=&quot;false&quot;&gt;   
+    &lt;root level=&quot;DEBUG&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot; /&gt;
+    &lt;/root&gt;
+&lt;/configuration&gt;
+</code></pre>
+<h3 id="appender日志输出目的地">appender：日志输出目的地</h3>
+<p>与log4j中的appender一样，logback中的<appender>节点也同样负责日志输出的目的地。</p>
+<p>appender中有2个必填属性: <strong>name</strong>和<strong>class</strong>。name为<appender>节点的名称，class为<appender>的全限定类名，也就是日志输出目的地的处理类。此外，我们还可以在<appender>中单独指定日志的格式，设置日志过滤器等操作；</p>
+<h4 id="consoleappender">ConsoleAppender</h4>
+<p>将日志输出到控制台，可以在其节点中设置<encoder>子节点，设置日志输出的格式；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;  
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg %n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+</code></pre>
+<h4 id="fileappender">FileAppender</h4>
+<p>将日志输出到具体的磁盘文件中，可以单独指定具体的位置，也可以设置日志的输出格式；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.FileAppender&quot;&gt;  
+    &lt;file&gt;e:/log.out&lt;/file&gt;  
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+</code></pre>
+<ul>
+<li><append>：新增的日志是否以追加到文件结尾的方式写入到log.out文件中，true为追加，fasle为清空现存文件写入；</li>
+<li><prudent>：日志是否被安全的写入磁盘文件，默认为false。如果为true，则效率低下</li>
+</ul>
+<h4 id="rollingfileappender">RollingFileAppender</h4>
+<p>滚动记录日志，当符合<rollingPolicy>节点中设置的条件时，会将现有日志移到新的文件中去。<rollingPolicy>节点中可设置的条件为：文件的大小、时间等；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+    &lt;file&gt;e:/log.out&lt;/file&gt;
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+        &lt;fileNamePattern&gt;testLog-%d{yyyy-MM-dd}.log&lt;/fileNamePattern&gt;
+        &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+    &lt;/rollingPolicy&gt;
+    &lt;encoder&gt;
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;
+    &lt;/encoder&gt;
+&lt;/appender&gt;
+</code></pre>
+<p>其中，rollingPolicy 有如下几种：</p>
+<ul>
+<li>TimeBasedRollingPolicy表示根据时间制定日志文件的滚动策略</li>
+<li>FixedWindowRollingPolicy表示如果日志文件大小超过指定范围时，会根据文件名拆分成多个文件；</li>
+<li>SizeBasedTriggeringPolicy表示根据日志文件大小，超过制定大小会触发日志滚动；</li>
+</ul>
+<h4 id="asyncappender">AsyncAppender</h4>
+<p>异步记录日志，内部通过使用缓存的方式来实现异步打印，将日志打印事件event放入缓存中。具体数据结构为BlockingQueue；</p>
+<pre><code class="language-xml">&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.FileAppender&quot;&gt;  
+    &lt;file&gt;e:/log.out&lt;/file&gt;  
+    &lt;append&gt;true&lt;/append&gt;  
+    &lt;prudent&gt;false&lt;/prudent&gt;
+    &lt;encoder&gt;  
+        &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;  
+    &lt;/encoder&gt;  
+&lt;/appender&gt; 
+&lt;appender name =&quot;ASYNC&quot; class= &quot;ch.qos.logback.classic.AsyncAppender&quot;&gt;  
+    &lt;discardingThreshold&gt;0&lt;/discardingThreshold&gt;  
+    &lt;queueSize&gt;512&lt;/queueSize&gt;  
+    &lt;appender-ref ref =&quot;FILE&quot;/&gt;  
+&lt;/appender&gt;  
+</code></pre>
+<ul>
+<li><queueSize>：指的是BlockingQueue的队列容量大小，默认为256个；</li>
+<li><discardingThreshold>：如果BlockingQueue中还剩余20%的容量，那么程序会丢弃TRACE、DEBUG和INFO级别的日志打印事件event，只保留WARN和ERROR级别的。为了保留所有的日志打印事件，可以将该值设置为0。</li>
+</ul>
+<h3 id="encoder">encoder</h3>
+<p>日志格式化节点，负责格式化日志信息。<encoder>只负责了两件事情，第一负责将日志信息转换成字节数组，第二将字节数组写到输出流当中去；<br>
+在<encoder>中使用<pattern>来设置对应的格式；</p>
+<pre><code class="language-xml">&lt;encoder&gt; 
+  &lt;pattern&gt;%-4relative [%thread] %-5level %logger{35} - %msg%n&lt;/pattern&gt;
+&lt;/encoder  
+</code></pre>
+<h1 id="slfj适配器">SLFJ适配器</h1>
+<p><strong>slf4j是通过自己的api去调用实现组件的api</strong>，这样来完成适配的。我们重点看看是怎么做到适配的。</p>
+<h2 id="slf4j集成log4j">SLF4J集成log4j</h2>
+<h3 id="依赖-2">依赖</h3>
+<pre><code class="language-xml">&lt;dependencies&gt;
+  
+   &lt;!-- 引入log4j需要log4j-api和log4j-core --&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j&lt;/artifactId&gt;
+      &lt;version&gt;1.2.17&lt;/version&gt;
+    &lt;/dependency&gt;
+
+
+  &lt;!-- 引入log4j12需要log4j-api和log4j-core
+   &lt;dependency&gt;
+       &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+       &lt;artifactId&gt;log4j-api&lt;/artifactId&gt;
+       &lt;version&gt;1.7.25&lt;/version&gt;
+  &lt;/dependency&gt;
+  &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j-core&lt;/artifactId&gt;
+     &lt;version&gt;1.7.25&lt;/version&gt;
+  &lt;/dependency&gt;
+  --&gt;
+
+    &lt;!-- 引入slfj接口--&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+      &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+      &lt;version&gt;1.7.25&lt;/version&gt;
+    &lt;/dependency&gt;
+  
+
+   &lt;!-- 引入适配器--&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+      &lt;artifactId&gt;log4j-slf4j-impl&lt;/artifactId&gt;
+      &lt;version&gt;1.7.25&lt;/version&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+</code></pre>
+<h3 id="配置文件-2">配置文件</h3>
+<pre><code>log4j.rootLogger = DEBUG,stdout,D
+
+# 配置日志信息输出目的地
+log4j.appender.stdout = org.apache.log4j.ConsoleAppender
+# Target是输出目的地的目标
+log4j.appender.stdout.Target = System.out
+# 指定日志消息的输出最低层次
+log4j.appender.stdout.Threshold = INFO
+# 定义名为stdout的输出端的layout类型
+log4j.appender.stdout.layout = org.apache.log4j.PatternLayout
+# 如果使用pattern布局就要指定的打印信息的具体格式ConversionPattern
+log4j.appender.stdout.layout.ConversionPattern = [%-5p] %d{yyyy-MM-dd HH:mm:ss} %l%m%n
+
+
+
+# 名字为D的对应日志处理
+log4j.appender.D = org.apache.log4j.DailyRollingFileAppender
+# File是输出目的地的文件名
+log4j.appender.D.File = LOG//app_debug.log
+#false:默认值是true,即将消息增加到指定文件中，false指将消息覆盖指定的文件内容
+log4j.appender.D.Append = true
+log4j.appender.D.Threshold = DEBUG
+log4j.appender.D.layout = org.apache.log4j.TTCCLayout
+</code></pre>
+<h3 id="使用-2">使用</h3>
+<pre><code class="language-java">import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
+public class TestLog{
+    private final static Logger logger = LoggerFactory.getLogger(TestLog.class);
+    public static void main(String[] args) {
+        logger.info(&quot;programer processing......&quot;);
+        logger.error(&quot;Programer error......&quot;);
+        logger.debug(&quot;start Debug detail......&quot;);
+    }
+}
+</code></pre>
+<h2 id="slf4j其他适配器">slf4j其他适配器</h2>
+<pre><code class="language-java">A. jul
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+            &lt;artifactId&gt;slf4j-jdk14&lt;/artifactId&gt;
+            &lt;version&gt;2.0.0-alpha1&lt;/version&gt;
+        &lt;/dependency&gt;
+ B. log4j
+          &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.logging.log4j&lt;/groupId&gt;
+            &lt;artifactId&gt;log4j-slf4j-impl&lt;/artifactId&gt;
+            &lt;version&gt;2.14.1&lt;/version&gt;
+        &lt;/dependency&gt;
+
+C.log4j2
+          &lt;dependency&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+            &lt;artifactId&gt;slf4j-log4j12&lt;/artifactId&gt;
+            &lt;version&gt;2.0.0-alpha1&lt;/version&gt;
+        &lt;/dependency&gt;
+D. logback
+         &lt;dependency&gt;
+            &lt;groupId&gt;ch.qos.logback&lt;/groupId&gt;
+            &lt;artifactId&gt;logback-classic&lt;/artifactId&gt;
+            &lt;version&gt;1.3.0-alpha5&lt;/version&gt;
+        &lt;/dependency&gt;
+</code></pre>
+<h1 id="slfj桥接器">slfj桥接器</h1>
+<p>现在还有一个问题，假如你正在开发应用程序所调用的组件当中已经使用了 JCL 的，还有一些组建可能直接调用了 java.util.logging，这时你需要一个桥接器（名字为 XXX-over-slf4j.jar）把他们的日志输出重定向到 SLF4J</p>
+<pre><code class="language-xml">&lt;!-- 配置 log4j 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;log4j-over-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.25&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- 配置 jcl 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;jcl-over-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.8&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- 配置 jul 的桥接器 --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+    &lt;artifactId&gt;jul-to-slf4j&lt;/artifactId&gt;
+    &lt;version&gt;1.7.25&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<ul>
+<li>
+<p>所谓的桥接器就是一个假的日志实现工具，比如当你把 jcl-over-slf4j.jar 放到 CLASS_PATH 时，即使某个组件原本是通过 JCL 输出日志的，现在却会被 jcl-over-slf4j “骗到”SLF4J 里，然后 SLF4J 又会根据绑定器把日志交给具体的日志实现工具。</p>
+</li>
+<li>
+<p>需要把其他包中的目标包排掉。比如使用<code>jcl-over-slf4</code>时，先把其他地方的<code>commons-log</code>包排掉，这样就会加载<code>jcl-over-slf4</code>内部的<code>org.apache.commons.logging.LogFactory</code>而不是 <code>commons-log</code>内部的 <code>org.apache.commons.logging.LogFactory</code>.</p>
+<pre><code class="language-java">package org.apache.commons.logging;
+public abstract class LogFactory {
+  // ****
+static LogFactory logFactory = new SLF4JLogFactory();
+}
+</code></pre>
+</li>
+</ul>
+<h1 id="mdc">MDC</h1>
+<p><a href="https://www.jianshu.com/p/1dea7479eb07">MDC</a>（Mapped Diagnostic Context，映射调试上下文）是 log4j 和 logback 提供的一种方便在<strong>多线程条件下</strong>记录日志的功能。</p>
+<pre><code class="language-java">package org.slf4j;
+public class MDC {
+  // 将一个K-V的键值对放到容器，其实是放到当前线程的ThreadLocalMap中
+  public static void put(String key, String val);
+
+  // 根据key在当前线程的MDC容器中获取对应的值
+  public static String get(String key);
+
+  // 根据key移除容器中的值
+  public static void remove(String key);
+
+  // 清空当前线程的MDC容器
+  public static void clear();
+}
+</code></pre>
+<p>经常用来在日志中记录traceId,  在进程的trace上下文更改时进行设置：</p>
+<pre><code class="language-java">public class Slf4jMdcUpdater extends ContextListener {
+
+    private static final Slf4jMdcUpdater singleton = new Slf4jMdcUpdater();
+
+    private EagleEyeSlf4jMdcUpdater() {
+    }
+
+    public static Slf4jMdcUpdater getInstance() {
+        return singleton;
+    }
+
+    @Override
+    public void beforeSet(RpcContext_inner context) {
+        if (context != null) {
+            MDC.put(&quot;TRACE_ID&quot;, context.getTraceId());
+            MDC.put(&quot;RPC_ID&quot;, context.getRpcId());
+        } else {
+            MDC.remove(&quot;TRACE_ID&quot;);
+            MDC.remove(&quot;RPC_ID&quot;);
+        }
+    }
+}
+</code></pre>
+<p>参考：</p>
+<ul>
+<li>
+<p><a href="https://www.yiibai.com/log4j">易百教程-Log4J</a></p>
+</li>
+<li>
+<p><a href="https://www.liaoxuefeng.com/wiki/1252599548343744/1264738932870688">使用Commons Logging</a></p>
+</li>
+<li>
+<p><a href="https://www.cnblogs.com/warking/p/5710303.html">logback的使用和logback.xml详解</a></p>
+</li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#log4j">log4j</a>
+<ul>
+<li><a href="#log4j%E6%A1%86%E6%9E%B6">log4j框架</a>
+<ul>
+<li><a href="#%E6%A0%B8%E5%BF%83%E5%AF%B9%E8%B1%A1">核心对象</a></li>
+<li><a href="#%E6%94%AF%E6%8C%81%E5%AF%B9%E8%B1%A1">支持对象</a></li>
+</ul>
+</li>
+<li><a href="#log4j%E9%85%8D%E7%BD%AE">log4j配置</a>
+<ul>
+<li><a href="#log4jproperties">log4j.properties</a></li>
+<li><a href="#%E6%97%A5%E5%BF%97%E7%AD%89%E7%BA%A7">日志等级</a></li>
+<li><a href="#appenders">Appenders</a></li>
+<li><a href="#layout">Layout</a></li>
+<li></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#juljava-util-log">JUL(Java Util Log)</a></li>
+<li><a href="#jclcommons-logging">JCL(Commons Logging)</a></li>
+<li><a href="#slf4j%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5">SLF4J基本概念</a></li>
+<li><a href="#slf4j%E9%9B%86%E6%88%90logback">SLF4J集成logback</a>
+<ul>
+<li><a href="#%E4%BE%9D%E8%B5%96">依赖</a></li>
+<li><a href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6">配置文件</a></li>
+<li><a href="#%E4%BD%BF%E7%94%A8">使用</a></li>
+<li><a href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3">配置文件详解</a>
+<ul>
+<li><a href="#configuration%E9%85%8D%E7%BD%AE%E6%A0%B9%E8%8A%82%E7%82%B9">configuration：配置根节点</a></li>
+<li><a href="#property%E5%B1%9E%E6%80%A7%E5%8F%98%E9%87%8F">property：属性变量</a></li>
+<li><a href="#loggerlogger%E6%97%A5%E5%BF%97%E5%AF%B9%E8%B1%A1">logger<logger>：日志对象</a></li>
+<li><a href="#loggerroot%E6%A0%B9%E6%97%A5%E5%BF%97%E5%AF%B9%E8%B1%A1">logger<root>：根日志对象'</a></li>
+<li><a href="#appender%E6%97%A5%E5%BF%97%E8%BE%93%E5%87%BA%E7%9B%AE%E7%9A%84%E5%9C%B0">appender：日志输出目的地</a>
+<ul>
+<li><a href="#consoleappender">ConsoleAppender</a></li>
+<li><a href="#fileappender">FileAppender</a></li>
+<li><a href="#rollingfileappender">RollingFileAppender</a></li>
+<li><a href="#asyncappender">AsyncAppender</a></li>
+</ul>
+</li>
+<li><a href="#encoder">encoder</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#slfj%E9%80%82%E9%85%8D%E5%99%A8">SLFJ适配器</a>
+<ul>
+<li><a href="#slf4j%E9%9B%86%E6%88%90log4j">SLF4J集成log4j</a>
+<ul>
+<li><a href="#%E4%BE%9D%E8%B5%96-2">依赖</a></li>
+<li><a href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6-2">配置文件</a></li>
+<li><a href="#%E4%BD%BF%E7%94%A8-2">使用</a></li>
+</ul>
+</li>
+<li><a href="#slf4j%E5%85%B6%E4%BB%96%E9%80%82%E9%85%8D%E5%99%A8">slf4j其他适配器</a></li>
+</ul>
+</li>
+<li><a href="#slfj%E6%A1%A5%E6%8E%A5%E5%99%A8">slfj桥接器</a></li>
+<li><a href="#mdc">MDC</a></li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/java-properties-pei-zhi-shu-li/">
+              <h3 class="post-title">
+                Java Properties配置梳理
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

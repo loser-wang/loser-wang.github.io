@@ -1,0 +1,471 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Java Properties配置梳理 | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Java Properties配置梳理 | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="以数据库连接为例，展示如何进行属性配置。
+直接使用
+JDBCUtil对数据库进行操作:
+public class JDBCUtil {
+
+    public static final String URL = &quot;jdbc:mys..." />
+    <meta name="keywords" content="java基础" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Java Properties配置梳理
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-11-04
+              </span>
+              <span>
+                6 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/Q99GqzLbM/" class="post-tag">
+                  # java基础
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <p>以数据库连接为例，展示如何进行属性配置。</p>
+<h1 id="直接使用">直接使用</h1>
+<p><code>JDBCUtil</code>对数据库进行操作:</p>
+<pre><code class="language-java">public class JDBCUtil {
+
+    public static final String URL = &quot;jdbc:mysql://localhost:3306/jdbctest&quot;;
+    public static final String USER = &quot;root&quot;;
+    public static final String PASSWORD = &quot;password&quot;;
+    public static final String DRIVER = &quot;com.mysql.cj.jdbc.Driver&quot;;
+
+    public static void main(String[] args) {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            // 1.加载驱动程序
+            Class.forName(DRIVER);
+            //2.获得数据库连接
+            conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            //3.操作数据库
+            stmt = conn.createStatement();
+            //4.实现增删改查
+            rs = stmt.executeQuery(&quot;SELECT * FROM user;&quot;);
+
+
+            //如果有数据,rs.next()返回true
+            while (rs.next()) {
+                System.out.println(&quot;username= &quot; + rs.getString(&quot;username&quot;) + &quot;, password= &quot;
+                        + rs.getString(&quot;password&quot;) + &quot;, name= &quot; + rs.getString(&quot;name&quot;));
+            }
+
+            stmt.close();
+            conn.close();
+        } catch (ClassNotFoundException ex1) {
+            ex1.printStackTrace();
+        } catch (SQLException ex2) {
+            ex2.printStackTrace();
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException sqlEx) {
+                    //
+                }
+                rs = null;
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException sqlEx) {
+                        //
+                    }
+                    conn = null;
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException sqlEx) {
+                            //
+                        }
+                        conn = null; //垃圾回收机制会更早地垃圾释放
+
+                    }
+                }
+            }
+        }
+    }
+</code></pre>
+<p>其中，<code>url</code>、<code>username</code>、<code>password</code>、<code>driverClassName</code>等数据库连接所需的参数属性直接在代码中写死，后续如果有变化，需要更改所有使用的地方。所以，现在需要把这些属性从代码中单独抽取到配置文件中。</p>
+<h1 id="属性读取">属性读取</h1>
+<p>将属性抽取到<code>datasource.properties</code>文件中:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<p>代码中使用<code>DataSource</code>对象：</p>
+<pre><code class="language-java">@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class DataSource {
+    private String driverClassName;
+    private String url;
+    private String username;
+    private String password;
+}
+</code></pre>
+<p>配置文件到对象的映射如下：</p>
+<pre><code class="language-java">public class DataSourceFactory {
+    public static DataSource getDataSource() throws IOException {
+        InputStream inputStream = DataSourceFactory.class.getResourceAsStream(&quot;/datasource.properties&quot;);
+        Properties properties = new Properties();
+        properties.load(inputStream);
+
+        DataSource dataSource = DataSource.builder()
+                .driverClassName(properties.getProperty(&quot;mydatasource.driverClassName&quot;))
+                .url(properties.getProperty(&quot;mydatasource.url&quot;))
+                .username(properties.getProperty(&quot;mydatasource.username&quot;))
+                .password(properties.getProperty(&quot;mydatasource.password&quot;))
+                .build();
+        return dataSource;
+    }
+}
+</code></pre>
+<p>然后我们的数据库操作代码就变成了：</p>
+<pre><code class="language-java">public class JDBCUtil {
+
+    public static void main(String[] args) {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            DataSource dataSource = DataSourceFactory.getDataSource();
+            // 1.加载驱动程序
+            Class.forName(dataSource.getUrl());
+
+            //2.获得数据库连接
+            conn = DriverManager.getConnection(dataSource.getUrl(), dataSource.getUsername(), dataSource.getPassword());
+            //3.操作数据库
+            stmt = conn.createStatement();
+            //4.实现增删改查
+            rs = stmt.executeQuery(&quot;SELECT * FROM user;&quot;);
+
+
+            //如果有数据,rs.next()返回true
+            while (rs.next()) {
+                System.out.println(&quot;username= &quot; + rs.getString(&quot;username&quot;) + &quot;, password= &quot;
+                        + rs.getString(&quot;password&quot;) + &quot;, name= &quot; + rs.getString(&quot;name&quot;));
+            }
+
+            stmt.close();
+            conn.close();
+        } catch (ClassNotFoundException ex1) {
+            ex1.printStackTrace();
+        } catch (Exception ex2) {
+            ex2.printStackTrace();
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException sqlEx) {
+                    //
+                }
+                rs = null;
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException sqlEx) {
+                        //
+                    }
+                    conn = null;
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException sqlEx) {
+                            //
+                        }
+                        conn = null; //垃圾回收机制会更早地垃圾释放
+
+                    }
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<h1 id="propertysource">PropertySource</h1>
+<p>在Spring项目中可以使用<code>PropertySource</code>配置文件到对象的映射:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<pre><code class="language-java">@Data
+@Component
+@PropertySource(&quot;datasource.properties&quot;)
+public class DataSource {
+    @Value(&quot;${mydatasource.driverClassName}&quot;)
+    private String driverClassName;
+
+    @Value(&quot;${mydatasource.url}&quot;)
+    private String url;
+
+    @Value(&quot;${mydatasource.username}&quot;)
+    private String username;
+
+    @Value(&quot;${mydatasource.password}&quot;)
+    private String password;
+}
+</code></pre>
+<p><code>DataSource</code>能够直接当作<code>bean</code>使用</p>
+<h1 id="configurationproperties">ConfigurationProperties</h1>
+<p>在SpringBoot项目中可以使用<code>ConfigurationProperties</code>实现配置文件(application.yml或者application.properties) 到对象的映射:</p>
+<pre><code class="language-properties"># 驱动的Java类名
+mydatasource.driverClassName=com.mysql.cj.jdbc.Driver
+#传递给JDBC驱动的用于建立连接的URL
+mydatasource.url=jdbc:mysql://localhost:3306/jdbctest?useUnicode=true&amp;characterEncoding=UTF-8&amp;serverTimezone=GMT%2B8
+#用户名和密码
+mydatasource.username=root
+mydatasource.password=1234
+</code></pre>
+<pre><code class="language-java">@Configuration
+@ConfigurationProperties(prefix = &quot;mydatasource&quot;)
+@Data
+public class DataSource {
+
+    private String driverClassName;
+
+    private String url;
+
+    private String username;
+
+    private String password;
+}
+</code></pre>
+<h1 id="配置中心">配置中心</h1>
+<p>如nacos：<a href="https://nacos.io/zh-cn/docs/quick-start-spring-boot.html">https://nacos.io/zh-cn/docs/quick-start-spring-boot.html</a></p>
+<ol>
+<li>添加依赖。</li>
+</ol>
+<pre><code class="language-java">&lt;dependency&gt;
+ &lt;groupId&gt;com.alibaba.boot&lt;/groupId&gt;
+ &lt;artifactId&gt;nacos-config-spring-boot-starter&lt;/artifactId&gt;
+ &lt;version&gt;${latest.version}&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<ol start="2">
+<li>在 application.properties 中配置 Nacos server 的地址：</li>
+</ol>
+<pre><code class="language-latex">nacos.config.server-addr=127.0.0.1:8848
+</code></pre>
+<ol start="3">
+<li>使用 @NacosPropertySource 加载 dataId 为 example 的配置源，并开启自动更新：</li>
+</ol>
+<pre><code class="language-java">@SpringBootApplication
+@NacosPropertySource(dataId = &quot;example&quot;, autoRefreshed = true)
+public class NacosConfigApplication {
+
+ public static void main(String[] args) {
+     SpringApplication.run(NacosConfigApplication.class, args);
+ }
+}
+</code></pre>
+<ol start="4">
+<li>通过 Nacos 的 @NacosValue 注解设置属性值。</li>
+</ol>
+<pre><code class="language-java">@Controller
+@RequestMapping(&quot;config&quot;)
+public class ConfigController {
+
+ @NacosValue(value = &quot;${useLocalCache:false}&quot;, autoRefreshed = true)
+ private boolean useLocalCache;
+
+ @RequestMapping(value = &quot;/get&quot;, method = GET)
+ @ResponseBody
+ public boolean get() {
+     return useLocalCache;
+ }
+}
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8">直接使用</a></li>
+<li><a href="#%E5%B1%9E%E6%80%A7%E8%AF%BB%E5%8F%96">属性读取</a></li>
+<li><a href="#propertysource">PropertySource</a></li>
+<li><a href="#configurationproperties">ConfigurationProperties</a></li>
+<li><a href="#%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83">配置中心</a></li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/xia-yi-zhan-mei-tuan-ji-chu-jia-gou-shi-xi/">
+              <h3 class="post-title">
+                实习再体验-美团基础架构
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

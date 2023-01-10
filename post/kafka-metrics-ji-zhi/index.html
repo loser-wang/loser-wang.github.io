@@ -1,0 +1,353 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kafka Metrics机制 | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Kafka Metrics机制 | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="Kafka Metrics机制
+
+Kafka uses Yammer Metrics for metrics reporting in the server. The Java clients use Kafka Metrics, a bu..." />
+    <meta name="keywords" content="分布式,源码" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Kafka Metrics机制
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-08-09
+              </span>
+              <span>
+                7 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/YpWtC30aC/" class="post-tag">
+                  # 分布式
+                </a>
+              
+                <a href="https://loser-wang.github.io/tag/code/" class="post-tag">
+                  # 源码
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/logo.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h1 id="kafka-metrics机制">Kafka Metrics机制</h1>
+<blockquote>
+<p>Kafka uses <strong>Yammer Metrics</strong> for metrics reporting in the server. The Java clients use <strong>Kafka Metrics</strong>, a built-in metrics registry that minimizes transitive dependencies pulled into client applications. Both expose metrics via <strong>JMX</strong> and can be configured to report stats using pluggable <strong>stats reporters</strong> to hook up to your monitoring system.</p>
+<p>—— https://kafka.apache.org/documentation/#monitoring</p>
+</blockquote>
+<h2 id="1-metrics收集原理">1. Metrics收集原理</h2>
+<p><strong>Metrics</strong>类用来管理kafka运行产生的各种埋点数据，内部管理两个关键类：<strong>Metric</strong>和<strong>Sensor.</strong></p>
+<h3 id="11-metric">1.1 Metric</h3>
+<p>程序运行时会产生各种数据，Metric封装了获取这些数据的细节，提供给外界使用(Facade Pattern)。每一个Metric代表一种类型的数据，一系列Metic组成所有维度的统计数据，通过Measurable方法获取具体的数据。如下图所示：</p>
+<figure data-type="image" tabindex="1"><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8e017e4f6a0547fea58d1985bbccccb9~tplv-k3u1fbpfcp-watermark.image?" alt="Metric.jpeg" loading="lazy"></figure>
+<p align=center>图1 Metric收集原理</p>
+<ol>
+<li>程序运行的过程中不断产生各种数据，这些数据可以是当前的某个状态，比如访问次数总和，也可以是历史记录，比如每分钟的统计次数。这些指标数据可以是内存中的一个变量，也可以保存到数据库中。</li>
+<li>需要统计的指标为一个Metric，用来供外界查看。</li>
+<li>我们需要建立一个从Metric到数据的映射关系，这就通过Measurable来建立。</li>
+</ol>
+<p>比如：</p>
+<pre><code class="language-java">// 数据
+int count = 0;
+
+// metrics “api”
+addMetric(metricName(&quot;count&quot;, &quot;kafka-metrics-count&quot;, &quot;total number of registered metrics&quot;),
+          //metrics到数据的映射方式
+      new Measurable() {
+               @Override
+           public double measure(MetricConfig config, long now) {
+                 return count;
+           }
+      });
+</code></pre>
+<pre><code class="language-java">Map&lt;Long, Integer&gt; counts1 = new HashMap&lt;Long, Integer&gt;();
+Map&lt;Long, Integer&gt; counts2 = new HashMap&lt;Long, Integer&gt;();
+addMetric(metricName(&quot;count&quot;, &quot;kafka-metrics-count&quot;, &quot;total number of registered metrics&quot;),
+    new Measurable() {
+                @Override
+         public double measure(MetricConfig config, long now) {
+               return count1.get(now) + count2.get(now);
+         }
+    });
+</code></pre>
+<h3 id="12-sensor">1.2 Sensor</h3>
+<blockquote>
+<p><em>A sensor applies a continuous sequence of numerical values to a set of associated metrics. For example a sensor on message size would record a sequence of message sizes using the {<strong>@link</strong> #record(double)} api and would maintain a set of metrics about request sizes such as the average or max.</em></p>
+</blockquote>
+<p><em>我们可以通过 生成数据 +</em> Metrics+Measurable 来统计任何维度的数据。Sensor其实就是一种特殊实现，帮我们实现了这样一种常见场景：采集数据，然后将之前采集的所有数据映射成各种<strong>聚合的结果</strong>，再通过Metrics来提供给外界。如下图所示：</p>
+<figure data-type="image" tabindex="2"><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/aa3701852c8d4555b8f6f0c7085e7552~tplv-k3u1fbpfcp-watermark.image?" alt="Sensor.jpeg" loading="lazy"></figure>
+<p align=center>图2 Sensor采集原理</p>
+<ol>
+<li>首先在Sensor中注册Metric和对应的Stat。</li>
+<li>在程序运行的过程中，通过 Sensor.record 采集数据。</li>
+<li>Sensor会将采集的数据分发给所有的Stat，同时检查其对应的所有的Metric是否超过配置中的限额。</li>
+<li>Stat对数据进行集成操作（如count、avg、max）</li>
+<li>Metric通过调用Stat的measure方法获取数据</li>
+</ol>
+<p>其中的关键就是：SampledStat，可以看到继承了Measurable。即既保存数据，又提供数据到Metic的映射关系。</p>
+<figure data-type="image" tabindex="3"><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2b13e4e9a1a64f1bae5d5ba65a2e0f70~tplv-k3u1fbpfcp-zoom-1.image" alt="SampledStat" loading="lazy"></figure>
+<h3 id="13-state">1.3 State</h3>
+<p>目前已有的MeasurableState有：</p>
+<ul>
+<li>Rate: 采样频率（内部为Count）</li>
+<li>Total: 统计总数，无时间窗口，从启动开始一直累加。</li>
+<li>Value: 当前值</li>
+<li>SimpleStat:对时间窗口内的数据进行采集聚合。创建Metrics时，可以根据MetricConfig设置<strong>窗口数</strong>、<strong>窗口单位时间</strong>、<strong>窗口采集上限</strong>。默认采用2个窗口，窗口的时间单位为30s，共一分钟，采集上限为Long.MAX_VALUE。</li>
+<li>Max</li>
+<li>Avg</li>
+<li>Count</li>
+<li>Min</li>
+</ul>
+<p>重点看一下Count和Rate:</p>
+<h4 id="count">Count</h4>
+<figure data-type="image" tabindex="4"><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3768f8fd14c142438a9d05536fd0b9b5~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"></figure>
+<p>Count每次采集信息时，如果发现当前窗口已经满了（超时或者达到值上限），会把第一个窗口1给清空，作为新窗口。</p>
+<p><strong>窗口切换的过程中可能会导致数据还未上报就已经丢失</strong> .</p>
+<h4 id="rate">Rate</h4>
+<p>Rate内部也通过Count保存数据，在返回时 value/(当前时间-窗口最早时间).<strong>窗口切换的过程中也可能会导致数据还未上报就已经丢失</strong>。但是如果分布均匀，时间同样也小了，Rate值可以降低影响。</p>
+<h3 id="14-总体结构">1.4 总体结构</h3>
+<p>通过上面的内容，已经大致了解采集的具体结构。再来看一下Metrics的总体结构：</p>
+<figure data-type="image" tabindex="5"><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3adb285929534ca6a66e2f1e59ea759b~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"></figure>
+<p align=center>总体结构</p>
+<h2 id="2-外界获取metrics数据">2. 外界获取Metrics数据</h2>
+<p>可以通过多种方式将数据暴露给外部使用。如JMX、yamml等。</p>
+<h3 id="21-jmx">2.1 JMX</h3>
+<p><a href="https://www.baeldung.com/java-management-extensions">Basic Introduction to JMX</a></p>
+<p>JmxReporter实现了MetricsReporter方法，将Metrics提供给JMX。MetricsReporter定义了一些钩子函数，会在注册Repoter、更新Metric、移除Metric时触发。</p>
+<p>具体的原理也很简单，就是将Metric的值保存在<strong>MBean中，<strong>通过</strong>JMX Agent</strong>暴露出去:</p>
+<pre><code class="language-java">public class JmxReporter implements MetricsReporter {
+  private final Map&lt;String, KafkaMbean&gt; mbeans = new HashMap&lt;String, KafkaMbean&gt;();
+  
+  //创建时将metric封装进KafkaMbean，然后注册KafkaMbean到JMX Agent（更新、移除时同理）
+  @Override
+  public void init(List&lt;KafkaMetric&gt; metrics) {
+        synchronized (LOCK) {
+            for (KafkaMetric metric : metrics)
+                addAttribute(metric);
+            for (KafkaMbean mbean : mbeans.values())
+                reregister(mbean);
+        }
+    }
+  
+  // 注册KafkaMbean到JMX Agent
+   private void reregister(KafkaMbean mbean) {
+        unregister(mbean);
+        try {
+            ManagementFactory.getPlatformMBeanServer().registerMBean(mbean, mbean.name());
+        } catch (JMException e) {
+            throw new KafkaException(&quot;Error registering mbean &quot; + mbean.name(), e);
+        }
+    }
+  
+}
+ 
+  
+</code></pre>
+<h2 id="4-采样数据丢失思考">4. 采样数据丢失思考</h2>
+<p>我在offset commit消息上报的时候，明明已经触发了故障，但是却出现如下结果：一分钟内，offet commit的频率(Rate)为0.2, 但是offet commit success出现的次数为0，offet commit fail出现的次数(Count)可能为12，8，9等各种值, 显然<br>
+Count有数据丢失了。</p>
+<p>Kafka Client Metric的大多数数据采集都是随机的，所以尽管可能会有少量数据丢失，但是不影响整体。但是像offet commit这种<strong>周期性采集</strong>的消息，可能就会出现很多问题，这里讨论一下。<br>
+为何Rate值相对更可靠，Count值不可靠？先说结论，<strong>采集和上报直接存在盲区</strong>。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d8bdaac3faa148e7b56c4aee23ff65d2~tplv-k3u1fbpfcp-watermark.image?" alt="Metrics.jpeg" loading="lazy"><br>
+由上图可以看到，由于采集和上报是异步的，且周期都是1分钟，所以会出现红色区域所示的盲区。如果极端情况下，采集刚切换窗口后立即开始上报，会有1/2的数据丢失！<br>
+所以，得出如下结论:</p>
+<ol>
+<li>Kafka Metric收集的值仅可作为出现错误或者异常的依据，不可用来当作确切的值。</li>
+<li>如果要采集的周期性数据出现的频率远大于一分钟的时候，上报频率尽量不要是60s的倍数。否则可能运气不好，一直无法收集到采集数据。比如offet commit的频率一般是flink checkpoint时间，这时候尽量不要设置60的倍数。</li>
+<li>正如我们前面说的，<strong><em>生成数据 +</em>  Metrics+Measurable 来统计任何维度的数据</strong>。如果非要收集确切值，我们也可以通过Measurable方法使采集和上报同步，即每次在上报的同时才清空数据。但是这样要注意，<strong>如果存在多个Reporter,可能收集直接会彼此干扰。</strong></li>
+</ol>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#kafka-metrics%E6%9C%BA%E5%88%B6">Kafka Metrics机制</a>
+<ul>
+<li><a href="#1-metrics%E6%94%B6%E9%9B%86%E5%8E%9F%E7%90%86">1. Metrics收集原理</a>
+<ul>
+<li><a href="#11-metric">1.1 Metric</a></li>
+<li><a href="#12-sensor">1.2 Sensor</a></li>
+<li><a href="#13-state">1.3 State</a>
+<ul>
+<li><a href="#count">Count</a></li>
+<li><a href="#rate">Rate</a></li>
+</ul>
+</li>
+<li><a href="#14-%E6%80%BB%E4%BD%93%E7%BB%93%E6%9E%84">1.4 总体结构</a></li>
+</ul>
+</li>
+<li><a href="#2-%E5%A4%96%E7%95%8C%E8%8E%B7%E5%8F%96metrics%E6%95%B0%E6%8D%AE">2. 外界获取Metrics数据</a>
+<ul>
+<li><a href="#21-jmx">2.1 JMX</a></li>
+</ul>
+</li>
+<li><a href="#4-%E9%87%87%E6%A0%B7%E6%95%B0%E6%8D%AE%E4%B8%A2%E5%A4%B1%E6%80%9D%E8%80%83">4. 采样数据丢失思考</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/ji-yu-flink-2pc-de-kafka2hive/">
+              <h3 class="post-title">
+                kafka数据同步4:基于Flink 2PC的Kafka2Hive
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

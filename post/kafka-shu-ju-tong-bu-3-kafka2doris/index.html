@@ -1,0 +1,251 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kafka数据同步3: Kafka2Doris | Gridea</title>
+<link rel="shortcut icon" href="https://loser-wang.github.io/favicon.ico?v=1673338698301">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://loser-wang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Kafka数据同步3: Kafka2Doris | Gridea - Atom Feed" href="https://loser-wang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="1. Doris Label
+Copy From: doris的label的理解
+label 是用于表示一次导入操作的标识。在doris中，任何导入方式都会有一个label。这个label可以是用户指定的，也可能由系统自动生成。
+label..." />
+    <meta name="keywords" content="分布式" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://loser-wang.github.io">
+  <img class="avatar" src="https://loser-wang.github.io/images/avatar.png?v=1673338698301" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Kafka数据同步3: Kafka2Doris
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-07-26
+              </span>
+              <span>
+                2 min read
+              </span>
+              
+                <a href="https://loser-wang.github.io/tag/YpWtC30aC/" class="post-tag">
+                  # 分布式
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2hive/kafka2hive/logo.svg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content" v-pre>
+                <h2 id="1-doris-label">1. Doris Label</h2>
+<p>Copy From: <a href="https://github.com/apache/doris/discussions/6675">doris的label的理解</a></p>
+<p><strong>label 是用于表示一次导入操作的标识</strong>。在doris中，任何导入方式都会有一个label。这个label可以是用户指定的，也可能由系统自动生成。<br>
+label的目的是帮助实现 <em>“At-Most”</em> 的导入语义。即同一个label，在一个database内，只能被成功导入一次。如果一个label已经成功导入，如果再次使用这个label进行导入，会报错“Label already used”。而如果导入失败，则可以使用相同的label继续重试导入。</p>
+<p><strong>通过“At-Most”的导入语义，如果配合上游系统“At-Least”数据生产语义，则可以实现端到端的“Exactly-once”语义，保证数据不丢不重。</strong></p>
+<p>无法查看一个表里有哪些label，因为label对应的是导入任务，而不是表。</p>
+<h2 id="2-设计思路">2. 设计思路</h2>
+<p>Kafka2Doris没有采用checkpoint机制来保证一致性，而是通过 Doris Label + offset来保证exact-once语义：</p>
+<ul>
+<li>
+<p>Flink先保存消费的Kafka消息到Batch，然后串行发送Batch数据到Doris。即每次发送一批数据前，上一批数据已经发送成功。</p>
+</li>
+<li>
+<p>每次提交数据到Doris前，会保存如下信息到Zookeeper：Kafka分区offset范围[startOffset, EndOffset]和Doris Label。</p>
+</li>
+<li>
+<p>每次重启job时，从Zookeeper中获取每个分区的上一次消费的分区范围和Label，然后查询label是否导入成功：</p>
+<ul>
+<li>如果导入成功，说明上一次消费成功，offset = endOffset + 1</li>
+<li>如果导入失败，说明上一次消费失败, offset = startOffset。</li>
+</ul>
+</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2doris/Kafka2doris%E8%AE%BE%E8%AE%A1%E6%80%9D%E8%B7%AF.png" alt="Kafka2Doris设计思路" loading="lazy"></figure>
+<h2 id="3-详细流程">3. 详细流程</h2>
+<ul>
+<li>
+<p>Job重启时先从Zookeeper中获取offset</p>
+</li>
+<li>
+<p>启动Flink作业，DataSource从offset开始消费。</p>
+</li>
+<li>
+<p>Sink会调用DorisWriter向PipelineManager写入消息(速度取决于DorisParser线程处理速度，漏桶式设计）</p>
+</li>
+<li>
+<p>DorisParser采用parallelism个线程获取与解析Sink中的消息，然后放到Batch中批量发送。即当前Sink已经消费的消息 = Doris中已同步的消息 + Batch中的消息 + parallelism个Parser线程正在解析的消息</p>
+</li>
+<li>
+<p>DorisSender以Batch为单位发送数据，先提交offset, 再发送数据（最多重试sendMaxRetry次）<br>
+<img src="https://loser-wang.oss-cn-beijing.aliyuncs.com/blog/kafka2doris/kafka2Doris.svg" alt="详细设计" loading="lazy"></p>
+</li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#1-doris-label">1. Doris Label</a></li>
+<li><a href="#2-%E8%AE%BE%E8%AE%A1%E6%80%9D%E8%B7%AF">2. 设计思路</a></li>
+<li><a href="#3-%E8%AF%A6%E7%BB%86%E6%B5%81%E7%A8%8B">3. 详细流程</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://loser-wang.github.io/post/kafka-ce-shi-fang-fa/">
+              <h3 class="post-title">
+                kafka测试方法
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'da52c54f88dffc9988bf',
+    clientSecret: '9dbab6c80d07d9104e3ce3651aa90c3caa4a0234',
+    repo: 'loser-wang.github.io',
+    owner: 'loser-wang',
+    admin: ['loser-wang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://loser-wang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
